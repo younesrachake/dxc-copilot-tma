@@ -1,0 +1,101 @@
+<div class="admin-dashboard">
+
+  <!-- ── Header ─────────────────────────────────────────── -->
+  <header class="admin-header">
+    <div class="header-left">
+      <h1>Tableau de bord Administration</h1>
+      <p class="header-subtitle" *ngIf="lastUpdated">Mis à jour à {{ lastUpdated }}</p>
+      <p class="header-subtitle" *ngIf="!lastUpdated">Chargement des données…</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline" (click)="refreshData()" [disabled]="isLoading">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Actualiser
+      </button>
+      <button class="btn btn-primary" (click)="exportData()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exporter
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Error banner ───────────────────────────────────── -->
+  <div *ngIf="loadError" class="error-banner">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Impossible de charger les statistiques. Vérifiez votre connexion et réessayez.
+  </div>
+
+  <!-- ── Skeleton (loading) ─────────────────────────────── -->
+  <section class="stats-grid" *ngIf="isLoading">
+    <div *ngFor="let i of skeletonItems" class="stat-skeleton">
+      <div class="sk-label"></div>
+      <div class="sk-value"></div>
+      <div class="sk-bar"></div>
+    </div>
+  </section>
+
+  <!-- ── Stat Cards ─────────────────────────────────────── -->
+  <section class="stats-grid" *ngIf="!isLoading">
+    <div *ngFor="let stat of stats" class="stat-card" [ngClass]="'accent-' + stat.accent">
+      <div class="stat-top-row">
+        <span class="stat-label">{{ stat.label }}</span>
+        <div class="stat-icon-wrap">{{ stat.icon }}</div>
+      </div>
+      <div class="stat-value">{{ stat.value }}</div>
+    </div>
+  </section>
+
+  <!-- ── Body: Activity + Quick Actions ────────────────── -->
+  <div class="dashboard-body">
+
+    <!-- Activity Feed -->
+    <section class="activity-section">
+      <div class="section-header">
+        <h2>Activité récente</h2>
+        <span class="activity-count" *ngIf="recentActivity.length">{{ recentActivity.length }} entrées</span>
+      </div>
+
+      <div class="activity-list" *ngIf="recentActivity.length; else emptyActivity">
+        <div *ngFor="let item of recentActivity; let even = even"
+             class="activity-item"
+             [class.even]="even">
+          <span class="activity-dot" [ngClass]="item.user === 'bot' ? 'dot-bot' : 'dot-user'"></span>
+          <div class="activity-avatar" [ngClass]="item.user === 'bot' ? 'avatar-bot' : 'avatar-user'">
+            {{ item.user === 'bot' ? 'B' : 'U' }}
+          </div>
+          <div class="activity-content">
+            <span class="activity-user">{{ item.user }}</span>
+            <span class="activity-action">{{ item.action }}</span>
+          </div>
+          <span class="activity-time">{{ timeAgo(item.time) }}</span>
+        </div>
+      </div>
+
+      <ng-template #emptyActivity>
+        <div class="empty-state">
+          <span>Aucune activité récente</span>
+        </div>
+      </ng-template>
+    </section>
+
+    <!-- Quick Actions Panel -->
+    <section class="quick-actions-panel">
+      <div class="section-header">
+        <h2>Actions rapides</h2>
+      </div>
+      <div class="action-list">
+        <button *ngFor="let qa of quickActions"
+                class="action-card"
+                (click)="qa.action()">
+          <div class="action-icon-wrap" [ngClass]="qa.gradient">{{ qa.icon }}</div>
+          <div class="action-body">
+            <span class="action-title">{{ qa.title }}</span>
+            <span class="action-desc">{{ qa.desc }}</span>
+          </div>
+          <span class="action-arrow">→</span>
+        </button>
+      </div>
+    </section>
+
+  </div><!-- /.dashboard-body -->
+</div>

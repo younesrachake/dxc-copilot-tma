@@ -1,0 +1,40 @@
+# ── Node / Angular ───────────────────────────────────────────
+node_modules/
+dist/
+.angular/
+.sass-cache/
+*.js.map
+
+# ── Python / Backend ─────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# ── Database & secrets ───────────────────────────────────────
+backend/dxc_copilot.db
+*.db
+*.sqlite
+*.sqlite3
+.env
+.env.*
+!.env.example
+
+# ── ChromaDB vector store (large binary files) ───────────────
+backend/knowledge_base/chroma_db/
+
+# ── OS / Editor ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*.swo
+
+# ── Logs ─────────────────────────────────────────────────────
+*.log
+logs/

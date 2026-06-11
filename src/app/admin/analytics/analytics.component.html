@@ -1,0 +1,144 @@
+<div class="analytics-container">
+  <header class="analytics-header">
+    <div class="header-left">
+      <button class="btn btn-outline" (click)="goBack()">
+        <span>←</span> Retour
+      </button>
+      <h1>📈 Analytics</h1>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-outline" (click)="refreshData()">
+        <span>🔄</span> Actualiser
+      </button>
+      <button class="btn btn-primary" (click)="exportData()">
+        <span>📥</span> Exporter
+      </button>
+    </div>
+  </header>
+
+  <!-- Metrics Cards -->
+  <div class="metrics-grid">
+    <div *ngFor="let metric of metrics" class="metric-card">
+      <div class="metric-label">{{ metric.label }}</div>
+      <div class="metric-value">{{ metric.value }}</div>
+      <div class="metric-change" [class.positive]="metric.trend === 'up'" [class.negative]="metric.trend === 'down'">
+        <span>{{ metric.change }}</span>
+        <span class="period">{{ metric.period }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart Placeholder -->
+  <div class="chart-section">
+    <h2>Évolution mensuelle</h2>
+    <div class="chart-placeholder">
+      <div class="chart-bars">
+        <div *ngFor="let data of chartData" class="chart-bar-group">
+          <div class="chart-bar" [style.height.%]="(data.requests / getMaxRequests()) * 100">
+            <span class="bar-label">{{ data.requests / 1000 }}k</span>
+          </div>
+          <div class="month-label">{{ data.month }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Features -->
+  <div class="features-section">
+    <h2>Fonctionnalités les plus utilisées</h2>
+    <div class="features-list">
+      <div *ngFor="let feature of topFeatures" class="feature-item">
+        <div class="feature-info">
+          <span class="feature-name">{{ feature.name }}</span>
+          <span class="feature-usage">{{ feature.usage }}%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="feature.percentage"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       RAG PIPELINE ANALYTICS (real data)
+  ══════════════════════════════════════ -->
+  <div class="rag-section">
+    <h2>🧠 Pipeline RAG — Métriques de Récupération</h2>
+
+    <div *ngIf="ragLoading" class="rag-loading">Chargement des métriques RAG...</div>
+
+    <div *ngIf="!ragLoading && ragStats">
+
+      <!-- KPI cards -->
+      <div class="rag-kpi-row">
+        <div class="rag-kpi-card">
+          <div class="rag-kpi-value">{{ ragStats.total_queries | number }}</div>
+          <div class="rag-kpi-label">Requêtes totales</div>
+        </div>
+        <div class="rag-kpi-card highlight">
+          <div class="rag-kpi-value">{{ ragStats.kb_hit_rate | percent:'1.0-1' }}</div>
+          <div class="rag-kpi-label">Taux de couverture KB</div>
+        </div>
+        <div class="rag-kpi-card">
+          <div class="rag-kpi-value">{{ ragStats.avg_top_score | number:'1.2-2' }}</div>
+          <div class="rag-kpi-label">Score moyen (0–1)</div>
+        </div>
+        <div class="rag-kpi-card">
+          <div class="rag-kpi-value">{{ ragStats.avg_latency_ms }} ms</div>
+          <div class="rag-kpi-label">Latence RAG moyenne</div>
+        </div>
+      </div>
+
+      <!-- Routing breakdown chart -->
+      <div class="rag-routing-section">
+        <h3>Répartition du routage (Dense+BM25 → RRF)</h3>
+        <div class="rag-routing-bars">
+          <div class="rag-routing-bar-group">
+            <div class="rag-routing-bar kb-primary"
+                 [style.height.%]="routingBarHeight(ragStats.routing_breakdown.kb_primary)">
+              <span class="rag-bar-value">{{ ragStats.routing_breakdown.kb_primary }}</span>
+            </div>
+            <div class="rag-routing-label">KB Primaire<br><small>score ≥ 0.75</small></div>
+          </div>
+          <div class="rag-routing-bar-group">
+            <div class="rag-routing-bar kb-hint"
+                 [style.height.%]="routingBarHeight(ragStats.routing_breakdown.kb_hint)">
+              <span class="rag-bar-value">{{ ragStats.routing_breakdown.kb_hint }}</span>
+            </div>
+            <div class="rag-routing-label">KB Indice<br><small>0.35–0.75</small></div>
+          </div>
+          <div class="rag-routing-bar-group">
+            <div class="rag-routing-bar groq-only"
+                 [style.height.%]="routingBarHeight(ragStats.routing_breakdown.groq_only)">
+              <span class="rag-bar-value">{{ ragStats.routing_breakdown.groq_only }}</span>
+            </div>
+            <div class="rag-routing-label">Groq seul<br><small>score &lt; 0.35</small></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top retrieved documents -->
+      <div class="rag-top-docs" *ngIf="ragStats.top_docs.length">
+        <h3>Documents KB les plus récupérés</h3>
+        <div class="rag-doc-list">
+          <div *ngFor="let doc of ragStats.top_docs; let i = index" class="rag-doc-item">
+            <span class="rag-doc-rank">#{{ i + 1 }}</span>
+            <span class="rag-doc-id">{{ doc.doc_id }}</span>
+            <div class="rag-doc-bar-wrap">
+              <div class="rag-doc-bar"
+                   [style.width.%]="(doc.count / (ragStats.top_docs[0]?.count || 1)) * 100">
+              </div>
+            </div>
+            <span class="rag-doc-count">{{ doc.count }}</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div *ngIf="!ragLoading && !ragStats" class="rag-empty">
+      Aucune donnée RAG disponible. Envoyez des messages dans le chat pour générer des métriques.
+    </div>
+  </div>
+
+</div>

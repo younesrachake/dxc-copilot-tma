@@ -1,0 +1,57 @@
+<div class="bg-grid"></div>
+<div class="data-stream ds-1"></div>
+<div class="data-stream ds-2"></div>
+<div class="data-stream ds-3"></div>
+
+<div class="login-container">
+  <img src="/assets/images/dxc-logo.png" alt="DXC Technology et CDG" class="brand-image">
+  
+  <h1>DXC Copilot</h1>
+  <p>Assistant IA</p>
+
+  <form (ngSubmit)="onSubmit()">
+    <div class="input-group">
+      <label for="email">E-mail institutionnel</label>
+      <input
+        type="email"
+        id="email"
+        [(ngModel)]="email"
+        name="email"
+        placeholder="prenom.nom@dxc.com"
+        required
+        autocomplete="username"
+        (ngModelChange)="onFieldChange()"
+      >
+    </div>
+    <div class="input-group password-group">
+      <label for="password">Mot de passe</label>
+      <div class="password-input-wrapper">
+        <input
+          [type]="showPassword ? 'text' : 'password'"
+          id="password"
+          [(ngModel)]="password"
+          name="password"
+          placeholder="••••••••"
+          required
+          autocomplete="current-password"
+          (ngModelChange)="onFieldChange()"
+        >
+        <button type="button" class="password-toggle" (click)="showPassword = !showPassword" tabindex="-1">
+          {{ showPassword ? '🙈' : '👁️' }}
+        </button>
+      </div>
+    </div>
+    <div class="error-message" *ngIf="errorMessage">
+      {{ errorMessage }}
+    </div>
+    <button type="submit" class="btn-primary" [disabled]="isLoading">
+      {{ isLoading ? 'Connexion...' : 'Se connecter' }}
+    </button>
+  </form>
+
+  <div class="divider"><span>OU</span></div>
+
+  <button class="btn-sso" type="button" (click)="onSSOConnect()">
+    <span>🔒</span> Connexion via SSO DXC
+  </button>
+</div>

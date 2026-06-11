@@ -1,0 +1,88 @@
+.audit-container { padding: 24px; }
+
+.audit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  h1 { font-size: 1.4rem; margin: 0; }
+}
+
+.error-banner {
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.4);
+  color: #ef4444;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-secondary);
+}
+
+.audit-table-wrapper { overflow-x: auto; }
+
+.audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+
+  th, td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--dxc-border-subtle, #e5e7eb);
+  }
+
+  th {
+    background: var(--dxc-light-gray, #f9fafb);
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  tr:hover td { background: rgba(0,0,0,0.02); }
+}
+
+.date-cell { white-space: nowrap; font-family: monospace; font-size: 0.8rem; }
+.detail-cell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.action-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(99,102,241,0.12);
+  color: #6366f1;
+
+  &.action-login { background: rgba(16,185,129,0.12); color: #10b981; }
+  &.action-delete_user, &.action-terminal_execute { background: rgba(239,68,68,0.12); color: #ef4444; }
+  &.action-create_user { background: rgba(59,130,246,0.12); color: #3b82f6; }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px 0;
+  font-size: 0.875rem;
+}
+
+.btn { padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.875rem; }
+.btn-outline {
+  background: none;
+  border: 1px solid var(--dxc-border-subtle, #d1d5db);
+  &:hover { background: rgba(0,0,0,0.04); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}

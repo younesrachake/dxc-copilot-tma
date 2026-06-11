@@ -1,0 +1,234 @@
+<div class="system-container">
+  <header class="system-header">
+    <div class="header-left">
+      <button class="btn btn-outline" (click)="goBack()">← Retour</button>
+      <h1>🔧 Configuration système</h1>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-primary" (click)="configureSystem()">
+        ⚙️ Configurer
+      </button>
+    </div>
+  </header>
+
+  <!-- System Information -->
+  <div class="info-section">
+    <h2>Informations système</h2>
+    <div class="info-grid">
+      <div *ngFor="let info of systemInfo" class="info-card">
+        <div class="info-label">{{ info.label }}</div>
+        <div class="info-value">{{ info.value }}</div>
+        <div class="status-indicator" [class.success]="info.status === 'success'">●</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Services Status -->
+  <div class="services-section">
+    <h2>Services en cours d'exécution</h2>
+    <div class="services-list">
+      <div *ngFor="let service of services" class="service-item">
+        <div class="service-header">
+          <div class="service-info">
+            <span class="service-name">{{ service.name }}</span>
+            <span class="service-status"
+                  [class.running]="service.status === 'running'"
+                  [class.restarting]="service.status === 'restarting'">
+              <ng-container *ngIf="service.status === 'running'">● En ligne</ng-container>
+              <ng-container *ngIf="service.status === 'restarting'">⟳ Redémarrage…</ng-container>
+              <ng-container *ngIf="service.status === 'stopped'">● Arrêté</ng-container>
+            </span>
+          </div>
+          <div class="service-actions">
+            <button class="btn btn-outline btn-sm" (click)="viewLogs(service)">
+              📋 Logs
+            </button>
+            <button class="btn btn-outline btn-sm"
+                    [disabled]="service.status === 'restarting'"
+                    (click)="restartService(service)">
+              🔄 Redémarrer
+            </button>
+          </div>
+        </div>
+        <div class="service-metrics">
+          <div class="metric">
+            <span>CPU: {{ service.cpu }}%</span>
+            <div class="metric-bar"><div class="metric-fill" [style.width.%]="service.cpu"></div></div>
+          </div>
+          <div class="metric">
+            <span>Mémoire: {{ service.memory }}%</span>
+            <div class="metric-bar"><div class="metric-fill" [style.width.%]="service.memory"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     CONFIGURATION PANEL BACKDROP
+══════════════════════════════════════════ -->
+<div class="panel-backdrop" *ngIf="configPanelOpen" (click)="closePanel()"></div>
+
+<!-- ══════════════════════════════════════════
+     CONFIGURATION SLIDE-IN PANEL
+══════════════════════════════════════════ -->
+<aside class="config-panel" [class.open]="configPanelOpen">
+  <div class="panel-header">
+    <div class="panel-title">
+      <span class="panel-icon">⚙️</span>
+      <div>
+        <h2>Configuration système</h2>
+        <p>Modifiez les paramètres d'infrastructure</p>
+      </div>
+    </div>
+    <button class="panel-close" (click)="closePanel()">✕</button>
+  </div>
+
+  <div class="panel-body">
+
+    <!-- API -->
+    <section class="config-section">
+      <h3 class="section-title">🌐 API & Serveur</h3>
+      <div class="config-grid">
+        <div class="config-field full-width">
+          <label>URL de base API</label>
+          <input type="url" [(ngModel)]="config.apiBaseUrl" />
+        </div>
+        <div class="config-field">
+          <label>Port</label>
+          <input type="number" [(ngModel)]="config.apiPort" />
+        </div>
+        <div class="config-field">
+          <label>Timeout (s)</label>
+          <input type="number" [(ngModel)]="config.apiTimeout" />
+        </div>
+        <div class="config-field">
+          <label>Tentatives max</label>
+          <input type="number" [(ngModel)]="config.apiMaxRetries" min="1" max="10" />
+        </div>
+        <div class="config-field">
+          <label>Requêtes simultanées max</label>
+          <input type="number" [(ngModel)]="config.maxConcurrentReq" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Database -->
+    <section class="config-section">
+      <h3 class="section-title">🗄️ Base de données</h3>
+      <div class="config-grid">
+        <div class="config-field">
+          <label>Hôte DB</label>
+          <input type="text" [(ngModel)]="config.dbHost" />
+        </div>
+        <div class="config-field">
+          <label>Port DB</label>
+          <input type="number" [(ngModel)]="config.dbPort" />
+        </div>
+        <div class="config-field full-width">
+          <label>Nom de la base</label>
+          <input type="text" [(ngModel)]="config.dbName" />
+        </div>
+        <div class="config-field">
+          <label>Pool min connexions</label>
+          <input type="number" [(ngModel)]="config.dbPoolMin" />
+        </div>
+        <div class="config-field">
+          <label>Pool max connexions</label>
+          <input type="number" [(ngModel)]="config.dbPoolMax" />
+        </div>
+        <div class="config-field full-width">
+          <label class="toggle-label-inline">
+            <span>SSL activé</span>
+            <label class="toggle-switch">
+              <input type="checkbox" [(ngModel)]="config.dbSslEnabled" />
+              <span class="slider"></span>
+            </label>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- Cache Redis -->
+    <section class="config-section">
+      <h3 class="section-title">⚡ Cache Redis</h3>
+      <div class="config-grid">
+        <div class="config-field">
+          <label>Hôte Redis</label>
+          <input type="text" [(ngModel)]="config.redisHost" />
+        </div>
+        <div class="config-field">
+          <label>Port Redis</label>
+          <input type="number" [(ngModel)]="config.redisPort" />
+        </div>
+        <div class="config-field">
+          <label>TTL cache (s)</label>
+          <input type="number" [(ngModel)]="config.redisTtl" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Service Ports -->
+    <section class="config-section">
+      <h3 class="section-title">🔌 Ports des services</h3>
+      <div class="config-grid">
+        <div class="config-field">
+          <label>API Gateway</label>
+          <input type="number" [(ngModel)]="config.apiGatewayPort" />
+        </div>
+        <div class="config-field">
+          <label>Auth Service</label>
+          <input type="number" [(ngModel)]="config.authServicePort" />
+        </div>
+        <div class="config-field">
+          <label>Chat Service</label>
+          <input type="number" [(ngModel)]="config.chatServicePort" />
+        </div>
+        <div class="config-field">
+          <label>Document Service</label>
+          <input type="number" [(ngModel)]="config.docServicePort" />
+        </div>
+        <div class="config-field">
+          <label>Analytics Service</label>
+          <input type="number" [(ngModel)]="config.analyticsPort" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Logs & Limites -->
+    <section class="config-section">
+      <h3 class="section-title">📋 Logs & Limites</h3>
+      <div class="config-grid">
+        <div class="config-field">
+          <label>Niveau de log</label>
+          <select [(ngModel)]="config.logLevel">
+            <option value="debug">debug</option>
+            <option value="info">info</option>
+            <option value="warn">warn</option>
+            <option value="error">error</option>
+          </select>
+        </div>
+        <div class="config-field">
+          <label>Rétention logs (jours)</label>
+          <input type="number" [(ngModel)]="config.logRetentionDays" />
+        </div>
+        <div class="config-field">
+          <label>Upload max (Mo)</label>
+          <input type="number" [(ngModel)]="config.maxUploadMb" />
+        </div>
+      </div>
+    </section>
+
+  </div><!-- /panel-body -->
+
+  <div class="panel-footer">
+    <div class="save-success" *ngIf="saveSuccess">
+      ✅ Configuration sauvegardée avec succès
+    </div>
+    <div class="footer-actions" *ngIf="!saveSuccess">
+      <button class="btn btn-outline" (click)="closePanel()">Annuler</button>
+      <button class="btn btn-primary" (click)="saveConfig()">💾 Sauvegarder</button>
+    </div>
+  </div>
+</aside>

@@ -1,0 +1,48 @@
+version: '3.9'
+
+# Development override — hot-reload Angular dev server instead of nginx
+services:
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: dxc-copilot-dev
+    command: npm start -- --host 0.0.0.0 --poll 500
+    ports:
+      - "4200:4200"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - dxc-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: dxc-copilot-redis-dev
+    ports:
+      - "6379:6379"
+    networks:
+      - dxc-net
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: dxc-copilot-db-dev
+    environment:
+      POSTGRES_DB: dxc_copilot_dev
+      POSTGRES_USER: dxc_dev
+      POSTGRES_PASSWORD: devpassword
+    ports:
+      - "5432:5432"
+    networks:
+      - dxc-net
+
+networks:
+  dxc-net:
+    driver: bridge

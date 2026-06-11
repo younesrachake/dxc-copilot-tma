@@ -1,0 +1,928 @@
+/* --- DXC Design System - Variables Globales --- */
+:root {
+  /* Couleurs principales */
+  --dxc-purple: #5F259F; 
+  --dxc-purple-light: #7A3BBD;
+  --dxc-black: #000000;
+  --dxc-dark-gray: #1A1A1A;
+  --dxc-dark-gray-alt: #0B0B0C; /* Plus sombre pour le fond tech */
+  --dxc-medium-gray: #4B5563;
+  --dxc-light-gray: #F9FAFB;
+  --dxc-light-gray-alt: #F3F4F6;
+  --dxc-border: #E5E7EB;
+  --dxc-border-subtle: rgba(229, 231, 235, 0.15); /* Bordures plus subtiles sur fond sombre */
+  --dxc-white: #FFFFFF;
+  
+  /* Couleurs états */
+  --dxc-success: #10B981;
+  --dxc-danger: #EF4444;
+  
+  /* Couleurs textes */
+  --text-primary:   #111827;
+  --text-secondary: #4B5563;
+  --text-muted:     #6B7280;
+}
+
+/* --- Reset CSS Global --- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  display: flex;
+  background-color: var(--dxc-white);
+  color: var(--dxc-dark-gray);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* --- Styles de base --- */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 1.5rem;
+  color: var(--dxc-white);
+  margin-bottom: 8px;
+}
+
+h2 {
+  font-size: 1.2rem;
+  color: var(--dxc-black);
+}
+
+h3 {
+  font-size: 1.1rem;
+}
+
+p {
+  margin-bottom: 1rem;
+  color: var(--text-secondary);
+}
+
+a {
+  color: var(--dxc-purple);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--dxc-purple-light);
+}
+
+/* --- Boutons --- */
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  border: none;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background-color: var(--dxc-purple);
+  color: var(--dxc-white);
+}
+
+.btn-primary:hover {
+  background-color: var(--dxc-purple-light);
+  transform: translateY(-1px);
+  box-shadow: 0 5px 15px rgba(95, 37, 159, 0.3);
+}
+
+.btn-outline {
+  background-color: var(--dxc-white);
+  border: 1px solid var(--dxc-border);
+  color: var(--dxc-black);
+}
+
+.btn-outline:hover {
+  background-color: var(--dxc-light-gray-alt);
+}
+
+.btn-sso {
+  background-color: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--dxc-border-subtle);
+  padding: 14px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.btn-sso:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--dxc-white);
+  border-color: var(--dxc-medium-gray);
+}
+
+/* --- Champs de formulaire --- */
+.input-group {
+  margin-bottom: 18px;
+  text-align: left;
+}
+
+.input-group label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.input-group input,
+.input-group textarea,
+.input-group select {
+  width: 100%;
+  padding: 12px 14px;
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--dxc-border-subtle);
+  border-radius: 6px;
+  font-size: 1rem;
+  color: var(--dxc-white);
+  outline: none;
+  transition: all 0.2s;
+}
+
+.input-group input:focus,
+.input-group textarea:focus,
+.input-group select:focus {
+  border-color: var(--dxc-purple-light);
+  background-color: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 0 10px rgba(122, 59, 189, 0.2);
+}
+
+/* --- Layouts --- */
+.sidebar {
+  width: 280px;
+  background-color: var(--dxc-dark-gray);
+  color: var(--dxc-white);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px;
+}
+
+.brand {
+  font-size: 1.4rem;
+  font-weight: bold;
+  margin-bottom: 30px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--dxc-white);
+}
+
+.brand-logo {
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, var(--dxc-purple-light), var(--dxc-purple));
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--dxc-white);
+}
+
+/* DXC PNG logo — used in sidebar and chat header */
+.brand-logo-img {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
+  /* White drop shadow so the red logo is visible on dark sidebar */
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35));
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* --- Navigation --- */
+.nav-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nav-item {
+  padding: 12px 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.nav-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--dxc-white);
+}
+
+.nav-item.active {
+  background-color: var(--dxc-purple);
+  color: var(--dxc-white);
+  font-weight: 600;
+}
+
+/* --- Animations --- */
+@keyframes grid-flow {
+  0% { transform: rotateX(60deg) translateY(0); }
+  100% { transform: rotateX(60deg) translateY(80px); }
+}
+
+@keyframes data-flow {
+  0% { transform: translateX(-100%); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateX(100vw); opacity: 0; }
+}
+
+/* --- Utilitaires --- */
+.divider {
+  display: flex;
+  align-items: center;
+  margin: 25px 0;
+  color: var(--dxc-medium-gray);
+  font-size: 0.85rem;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background-color: var(--dxc-border-subtle);
+}
+
+.divider span {
+  padding: 0 10px;
+}
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    position: fixed;
+    top: 0;
+    left: -100%;
+    height: 100vh;
+    z-index: 1000;
+    transition: left 0.3s ease;
+  }
+  
+  .sidebar.open {
+    left: 0;
+  }
+  
+  .main-content {
+    margin-left: 0;
+  }
+}
+
+/* ══════════════════════════════════════════
+   SIDEBAR — always dark background in both modes
+   Text must always be light regardless of theme.
+══════════════════════════════════════════ */
+.sidebar .item-topic        { color: #C9D1D9 !important; }
+.sidebar .item-time         { color: #8B949E !important; }
+.sidebar .history-title     { color: #8B949E !important; }
+.sidebar-bottom .nav-item   { color: #C9D1D9 !important; }
+.sidebar .nav-item          { color: #C9D1D9 !important; }
+.sidebar .collapse-btn      { color: #8B949E !important; }
+.sidebar .theme-toggle-btn  { color: #C9D1D9 !important; }
+.sidebar .mobile-close-btn  { color: #C9D1D9 !important; }
+.sidebar .brand > span      { color: #E5E7EB !important; }
+.sidebar .new-chat-btn      { color: #ffffff !important; }
+
+/* ══════════════════════════════════════════
+   DARK MODE — variable overrides
+══════════════════════════════════════════ */
+body.dark-mode {
+  --dxc-white:          #1E1E2E;
+  --dxc-light-gray:     #2A2A3C;
+  --dxc-light-gray-alt: #252535;
+  --dxc-border:         #3A3A52;
+  --dxc-border-subtle:  rgba(255,255,255,0.08);
+  --dxc-black:          #F3F4F6;
+  --dxc-dark-gray:      #E5E7EB;
+  --dxc-medium-gray:    #9CA3AF;
+  --text-primary:       #E5E7EB;
+  --text-secondary:     #9CA3AF;
+  --text-muted:         #6B7280;
+
+  background-color: #13131F;
+  color: #E5E7EB;
+
+  /* ═══════════════════════════════════════
+     SIDEBAR BACKGROUNDS
+     --dxc-dark-gray is remapped to #E5E7EB (light) for text use,
+     but .sidebar uses it as a background → must override explicitly.
+     Applies to BOTH main layout and admin-layout sidebars.
+  ═══════════════════════════════════════ */
+  .sidebar {
+    background-color: #1A1A2E !important;
+    color: #E5E7EB !important;
+  }
+
+  /* All nav items inside any sidebar must be clearly visible */
+  .nav-item,
+  .nav-list .nav-item { color: #D1D5DB !important; }
+  .nav-item.active    { color: #ffffff !important; background: var(--dxc-purple) !important; }
+  .nav-item:hover:not(.active) { background: rgba(255,255,255,0.08) !important; color: #ffffff !important; }
+
+  /* Brand name text next to logo */
+  .brand span, .brand > span { color: #E5E7EB !important; }
+  .badge-admin { color: #ffffff !important; }
+
+  /* ── Elements that use var(--dxc-white) as TEXT on colored (purple) bg ──
+     In dark mode --dxc-white = #1E1E2E (near-black) → invisible on purple.
+     Force true white for these. */
+  .brand-logo        { color: #ffffff !important; }
+  .new-chat-btn      { color: #ffffff !important; }
+  .collapse-btn      { color: #E5E7EB !important; }
+  .mobile-menu-toggle { color: #ffffff !important; }
+
+  /* ── Analytics chart: bar labels sit on purple bars ── */
+  .bar-label { color: #ffffff !important; }
+
+  /* ═══════════════════════════════════════
+     ALL ELEMENTS: color: var(--dxc-white) on COLORED backgrounds
+     --dxc-white maps to #1E1E2E (near-black) in dark mode,
+     making text invisible on purple/green/red/gray badges.
+  ═══════════════════════════════════════ */
+
+  /* Chat avatars on colored circles */
+  .bot-avatar  { color: #ffffff !important; }
+  .user-avatar { color: #ffffff !important; }
+
+  /* User message bubbles (purple background) */
+  .user-message .message-text { color: #ffffff !important; }
+
+  /* Role & status badges in Users / Reports / Maintenance / System */
+  .badge-admin              { color: #ffffff !important; }
+  .badge                    { color: #ffffff !important; }
+  .status                   { color: #ffffff !important; }
+  .status-active            { color: #ffffff !important; }
+
+  /* System-logs level pills (purple / orange / red backgrounds) */
+  .level-info,
+  .level-warning,
+  .level-error              { color: #ffffff !important; }
+
+  /* Primary buttons — purple background */
+  .btn-primary              { color: #ffffff !important; }
+
+  /* ── Layout host ── */
+  .admin-layout { background-color: #13131F !important; }
+
+  /* ── Global input fields ── */
+  .input-group input,
+  .input-group textarea,
+  .input-group select {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #E5E7EB;
+  }
+  .input-group input:focus,
+  .input-group textarea:focus,
+  .input-group select:focus {
+    border-color: var(--dxc-purple-light);
+    background-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+  }
+
+  /* ── btn-outline ── */
+  .btn-outline {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #E5E7EB;
+    &:hover { background-color: rgba(255, 255, 255, 0.12); }
+  }
+
+  /* ═══════════════════════════════════════
+     ADMIN SETTINGS (hardcoded colors fix)
+     Note: !important needed to beat Angular's _ngcontent
+     attribute selectors on nested component styles.
+  ═══════════════════════════════════════ */
+  .settings-layout  { background: #13131F !important; }
+
+  .settings-nav {
+    background: #1A1A2E !important;
+    border-right-color: #2D2D45 !important;
+  }
+  .settings-nav-title { color: #6B7280 !important; }
+
+  .settings-nav-item {
+    color: #9CA3AF !important;
+    &:hover  { background: rgba(255,255,255,0.06) !important; color: #E5E7EB !important; }
+    &.active { background: rgba(109,40,217,0.25) !important;  color: #C4B5FD !important; }
+  }
+
+  .settings-content { background: #13131F !important; }
+
+  .card {
+    background: #1E1E2E !important;
+    border-color: #2D2D45 !important;
+  }
+
+  .card-title {
+    color: #E5E7EB !important;
+    border-bottom-color: #2D2D45 !important;
+  }
+
+  /* section-header nested h2 / p */
+  .section-header h2 { color: #F3F4F6 !important; }
+  .section-header p  { color: #9CA3AF !important; }
+
+  /* Admin form inputs — all hardcoded #fff / #111827 */
+  input[type="text"],
+  input[type="email"],
+  input[type="url"],
+  input[type="password"],
+  input[type="number"],
+  input[type="time"],
+  select,
+  textarea {
+    background: #252535 !important;
+    border-color: #3A3A52 !important;
+    color: #E5E7EB !important;
+    &::placeholder { color: #6B7280 !important; }
+    &:focus {
+      border-color: #7C3AED !important;
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.15) !important;
+    }
+  }
+
+  /* form-group label nested inside .form-group */
+  .form-group label  { color: #9CA3AF !important; }
+  .form-group .required { color: #F87171 !important; }
+
+  /* toggle rows */
+  .toggle-row        { border-bottom-color: #2D2D45 !important; }
+  .toggle-label      { color: #E5E7EB !important; }
+  .toggle-desc       { color: #6B7280 !important; }
+  .toggle-switch .slider { background: #3A3A52 !important; }
+
+  /* Settings tables */
+  .settings-table thead tr { border-bottom-color: #2D2D45 !important; }
+  .settings-table thead th { color: #6B7280 !important; }
+  .settings-table tbody tr { border-bottom-color: #252535 !important; }
+  .settings-table tbody td { color: #D1D5DB !important; }
+
+  .badge-count { background: rgba(109,40,217,0.25) !important; color: #C4B5FD !important; }
+  .perm-badge  { background: #252535 !important; color: #D1D5DB !important; }
+
+  .api-key-row       { border-bottom-color: #2D2D45 !important; }
+  .key-label         { color: #6B7280 !important; }
+  .key-value         { background: #252535 !important; border-color: #3A3A52 !important; color: #D1D5DB !important; }
+
+  .btn-secondary {
+    background: #252535 !important;
+    color: #D1D5DB !important;
+    border-color: #3A3A52 !important;
+    &:hover { background: #2D2D45 !important; }
+  }
+
+  /* ═══════════════════════════════════════
+     SYSTEM LOGS (hardcoded pink/yellow fix)
+  ═══════════════════════════════════════ */
+  .logs-container { background: #13131F !important; }
+  .logs-list      { background: #1E1E2E !important; }
+
+  .log-item             { background: #252535 !important; }
+  .log-item.warning     { background: #1F1A0A !important; border-left-color: #F59E0B !important; }
+  .log-item.error       { background: #1F0A0A !important; border-left-color: #EF4444 !important; }
+  .log-service          { color: #E5E7EB !important; }
+  .log-message          { color: #D1D5DB !important; }
+
+  .search-box {
+    background: #1E1E2E !important;
+    border-color: #2D2D45 !important;
+    input { background: transparent !important; color: #E5E7EB !important; }
+  }
+  .filter-select { background: #1E1E2E !important; border-color: #2D2D45 !important; color: #E5E7EB !important; }
+
+  /* ═══════════════════════════════════════
+     USERS TABLE
+  ═══════════════════════════════════════ */
+  .users-table thead tr { border-bottom-color: #2D2D45 !important; }
+  .users-table thead th { color: #9CA3AF !important; }
+  .users-table tbody tr { border-bottom-color: #252535 !important; }
+  .users-table tbody td { color: #D1D5DB !important; }
+  .users-table table    { background: #1E1E2E !important; }
+
+  /* ═══════════════════════════════════════
+     MODALS (add/edit user)
+  ═══════════════════════════════════════ */
+  .modal-panel    { background: #1E1E2E !important; }
+  .modal-header   { background: #252535 !important; border-bottom-color: #2D2D45 !important; }
+  .modal-header h2 { color: #F3F4F6 !important; }
+  .modal-footer   { background: #252535 !important; border-top-color: #2D2D45 !important; }
+  .form-input {
+    background: #252535 !important;
+    border-color: #3A3A52 !important;
+    color: #E5E7EB !important;
+  }
+
+  /* ═══════════════════════════════════════
+     CHAT BUBBLES & INPUT
+  ═══════════════════════════════════════ */
+  .bot-message .message-text { background: #252535 !important; color: #E5E7EB !important; }
+  .message-input  { background: #1E1E2E !important; border-color: #2D2D45 !important; color: #E5E7EB !important; }
+  .input-area     { background: #13131F !important; border-top-color: #2D2D45 !important; }
+  .chat-header    { background: #1A1A2E !important; border-bottom-color: #2D2D45 !important; }
+
+  /* ── Canvas toolbar button (artifact/canvas open) ── */
+  .canvas-btn {
+    background: #252535 !important;
+    border-color: #2D2D45 !important;
+    color: #9CA3AF !important;
+    &:hover { background: #2D2D45 !important; color: #E5E7EB !important; }
+    &.active { background: rgba(109,40,217,0.25) !important; color: #C4B5FD !important; border-color: #6D28D9 !important; }
+  }
+
+  /* ── Artifact badge on bot message ── */
+  .artifact-btn {
+    background: rgba(109,40,217,0.15) !important;
+    border-color: rgba(109,40,217,0.4) !important;
+    &:hover { background: rgba(109,40,217,0.25) !important; border-color: #7C3AED !important; }
+    .artifact-name { color: #C4B5FD !important; }
+    .artifact-open-hint { color: #A78BFA !important; }
+  }
+
+  /* ── Jira ticket card ── */
+  .jira-card {
+    background: #1E1E2E !important;
+    border-color: #2D2D45 !important;
+    &.sent { background: #0A1F14 !important; border-color: #065F46 !important; }
+  }
+  .jira-card-header {
+    background: #252535 !important;
+    border-bottom-color: #2D2D45 !important;
+  }
+  .jira-card-label    { color: #D1D5DB !important; }
+  .jira-sent-badge    { background: rgba(16,185,129,0.2) !important; color: #6EE7B7 !important; }
+  .jira-draft-badge   { background: rgba(245,158,11,0.2) !important; color: #FCD34D !important; }
+  .jira-field label   { color: #9CA3AF !important; }
+  .jira-input,
+  .jira-textarea,
+  .jira-select {
+    background: #252535 !important;
+    border-color: #3A3A52 !important;
+    color: #E5E7EB !important;
+  }
+  .jira-summary strong { color: #E5E7EB !important; }
+  .jira-summary span   { color: #9CA3AF !important; }
+  .jira-card-footer {
+    background: #1A1A2E !important;
+    border-top-color: #2D2D45 !important;
+  }
+
+  /* Shimmer in dark mode */
+  .shimmer-line {
+    background: linear-gradient(90deg, #252535 25%, #2D2D45 50%, #252535 75%) !important;
+    background-size: 200% 100% !important;
+  }
+
+  /* ═══════════════════════════════════════
+     DOCUMENT VIEWER — base layout
+  ═══════════════════════════════════════ */
+  app-document-viewer,
+  .viewer-layout { background: #13131F !important; }
+
+  .toolbar {
+    background: #1E1E2E !important;
+    border-bottom-color: #2D2D45 !important;
+  }
+  .doc-info span  { color: #9CA3AF !important; }
+  .viewer-container { background: #0D0D1A !important; }
+
+  /* The "paper" page itself — keep it slightly off-dark so it reads like a document */
+  .document-page  { background: #1A1A2E !important; box-shadow: 0 10px 25px rgba(0,0,0,0.4) !important; }
+
+  /* page strip */
+  .page-strip { background: #1E1E2E !important; border-top-color: #2D2D45 !important; }
+  .strip-btn  { border-color: #2D2D45 !important; color: #D1D5DB !important;
+    &:hover { background: #252535 !important; }
+  }
+
+  /* ── Library header / stats / filters ── */
+  .lib-header   { background: #1E1E2E !important; border-bottom-color: #2D2D45 !important; }
+  .lib-title    { color: #F3F4F6 !important; }
+  .lib-subtitle { color: #9CA3AF !important; }
+
+  .lib-stats {
+    background: #1E1E2E !important;
+    border-bottom-color: #2D2D45 !important;
+    .stat-pill {
+      &.total      { background: #252535 !important; color: #D1D5DB !important; border-color: #3A3A52 !important; }
+      &.resolved   { background: rgba(16,185,129,0.15) !important; color: #6EE7B7 !important; border-color: #065F46 !important; }
+      &.inprogress { background: rgba(245,158,11,0.15) !important; color: #FCD34D !important; border-color: #92400E !important; }
+      &.open       { background: rgba(239,68,68,0.15)  !important; color: #FCA5A5 !important; border-color: #7F1D1D !important; }
+    }
+  }
+
+  .lib-filters {
+    background: #161622 !important;
+    border-bottom-color: #2D2D45 !important;
+    .search-wrap  { background: #1E1E2E !important; border-color: #2D2D45 !important; }
+    .filter-select { background: #1E1E2E !important; border-color: #2D2D45 !important; color: #D1D5DB !important; }
+    .btn-clear    { border-color: #2D2D45 !important; color: #9CA3AF !important;
+      &:hover { background: rgba(239,68,68,0.15) !important; color: #FCA5A5 !important; border-color: #7F1D1D !important; }
+    }
+  }
+  .lib-count { background: #161622 !important; color: #9CA3AF !important; }
+
+  /* ── Doc cards ── */
+  .doc-card {
+    background: #1E1E2E !important;
+    border-color: #2D2D45 !important;
+    .card-title { color: #F3F4F6 !important; }
+    .card-desc  { color: #9CA3AF !important; }
+  }
+  .card-meta   { color: #6B7280 !important; }
+  .card-origin { color: #6B7280 !important; }
+  .card-action { color: #6B7280 !important; }
+  .tag         { background: #252535 !important; color: #9CA3AF !important; }
+
+  /* ── Severity / status badges — make readable on dark ── */
+  .badge-sev {
+    &.sev-P1 { background: rgba(239,68,68,0.2) !important;   color: #FCA5A5 !important; }
+    &.sev-P2 { background: rgba(245,158,11,0.2) !important;  color: #FCD34D !important; }
+    &.sev-P3 { background: rgba(59,130,246,0.2) !important;  color: #93C5FD !important; }
+  }
+  .badge-status {
+    &.st-Résolu   { background: rgba(16,185,129,0.15) !important; color: #6EE7B7 !important; }
+    &.st-En-cours { background: rgba(245,158,11,0.15) !important; color: #FCD34D !important; }
+    &.st-Ouvert   { background: rgba(239,68,68,0.15) !important;  color: #FCA5A5 !important; }
+  }
+
+  /* ── Document page content ── */
+  .cover-meta-label { color: #9CA3AF !important; }
+  .cover-meta-value { color: #E5E7EB !important; }
+  .cover-notice     { color: #6B7280 !important; border-color: #3A3A52 !important; }
+  .toc-item         { border-bottom-color: #2D2D45 !important; color: #D1D5DB !important; }
+  .metric-label     { color: #9CA3AF !important; }
+
+  .review-doc-meta    { border-top-color: #2D2D45 !important; }
+  .meta-label         { color: #6B7280 !important; }
+  .meta-value         { color: #D1D5DB !important; }
+
+  /* ── Create doc modal ── */
+  .modal-header .modal-close { color: #6B7280 !important;
+    &:hover { background: #252535 !important; color: #E5E7EB !important; }
+  }
+  .modal-header { border-bottom-color: #2D2D45 !important; }
+  .modal-footer { border-top-color: #2D2D45 !important;   background: #1A1A2E !important; }
+  .modal-body   { background: #1E1E2E !important; }
+  .form-input, .form-textarea, .form-select {
+    background: #252535 !important;
+    border-color: #3A3A52 !important;
+    color: #E5E7EB !important;
+    &::placeholder { color: #6B7280 !important; }
+  }
+  .btn-add-tag {
+    background: #252535 !important;
+    border-color: #3A3A52 !important;
+    color: #D1D5DB !important;
+  }
+
+  /* ── Drafts section ── */
+  .drafts-section   { background: #1A1508 !important; border-color: #3D2E08 !important; }
+  .drafts-title     { color: #FCD34D !important; }
+  .drafts-subtitle  { color: #D97706 !important; }
+
+  .draft-card {
+    background: #1E1E2E !important;
+    border-color: #3A3A52 !important;
+    &.draft-approved { background: #0A1F14 !important; border-color: #065F46 !important; }
+    &.draft-rejected { background: #1A0808 !important; border-color: #7F1D1D !important; }
+    &.draft-changes  { background: #0A0D1F !important; border-color: #1E3A8A !important; }
+  }
+  .draft-title { color: #F3F4F6 !important; }
+  .draft-desc  { color: #9CA3AF !important; }
+  .draft-meta span { color: #6B7280 !important; }
+
+  .cat-badge { background: rgba(109,40,217,0.25) !important; color: #C4B5FD !important; }
+  .occ-badge { background: #252535 !important; color: #D1D5DB !important; }
+
+  .draft-status-chip {
+    &.chip-pending  { background: rgba(245,158,11,0.2) !important; color: #FCD34D !important; }
+    &.chip-approved { background: rgba(16,185,129,0.2) !important; color: #6EE7B7 !important; }
+    &.chip-rejected { background: rgba(239,68,68,0.2) !important;  color: #FCA5A5 !important; }
+    &.chip-changes  { background: rgba(59,130,246,0.2) !important; color: #93C5FD !important; }
+  }
+
+  /* ── Review panel ── */
+  .review-panel  { background: #1E1E2E !important; }
+  .review-header { background: #1A1508 !important; border-bottom-color: #3D2E08 !important; }
+  .review-title  { color: #FCD34D !important; }
+  .review-subtitle { color: #D97706 !important; }
+
+  .review-doc-card  { background: #252535 !important; border-color: #2D2D45 !important; }
+  .review-doc-title { color: #F3F4F6 !important; }
+  .review-doc-desc  { color: #9CA3AF !important; }
+
+  .review-checklist { background: #0A1F14 !important; border-color: #065F46 !important;
+    h4 { color: #6EE7B7 !important; }
+  }
+  .check-item { color: #D1D5DB !important; }
+
+  .review-note-label  { color: #9CA3AF !important; }
+  .review-note-input  { background: #252535 !important; border-color: #3A3A52 !important; color: #E5E7EB !important; }
+
+  .review-footer { background: #1A1A2E !important; border-top-color: #2D2D45 !important; }
+  .review-btn {
+    &.reject  { background: rgba(239,68,68,0.2) !important;  color: #FCA5A5 !important; }
+    &.changes { background: rgba(59,130,246,0.2) !important; color: #93C5FD !important; }
+  }
+
+  /* ═══════════════════════════════════════
+     MAINTENANCE — warning health card
+  ═══════════════════════════════════════ */
+  .health-card { background: #1E1E2E !important; }
+  .health-card.warning { background: #1F1A0A !important; border-color: #F59E0B !important; }
+
+  /* ═══════════════════════════════════════
+     TABLE HEADERS — all use var(--dxc-dark-gray) as bg
+     which flips to #E5E7EB in dark mode → must override
+  ═══════════════════════════════════════ */
+  .users-table    thead,
+  .tasks-table    table thead,
+  .reports-table  table thead,
+  .service-table  table thead,
+  .month-table    table thead,
+  .doc-table      thead {
+    background-color: #252535 !important;
+    color: #E5E7EB !important;
+  }
+  /* also fix td text color for admin tables using CSS variables */
+  .users-table   tbody td,
+  .tasks-table   table tbody td,
+  .reports-table table tbody td,
+  .service-table table tbody td,
+  .month-table   table tbody td { color: #D1D5DB !important; }
+
+  /* ── form-error box (red bg in users modal) ── */
+  .form-error {
+    background: rgba(239,68,68,0.12) !important;
+    border-color: rgba(239,68,68,0.3) !important;
+    color: #FCA5A5 !important;
+  }
+
+  /* ── modal-header h2 nested deeply ── */
+  .modal-title-row h2 { color: #F3F4F6 !important; }
+
+  /* ═══════════════════════════════════════
+     ADMIN DASHBOARD
+  ═══════════════════════════════════════ */
+  /* Cards and panels */
+  .stat-card           { background: #1E1E2E !important; border-color: #2D2D45 !important; }
+  .stat-skeleton       { background: #1E1E2E !important; border-color: #2D2D45 !important;
+    .sk-label, .sk-value, .sk-bar {
+      background: linear-gradient(90deg, #252535 25%, #2D2D45 50%, #252535 75%) !important;
+      background-size: 200% 100% !important;
+    }
+  }
+  .activity-section    { background: #1E1E2E !important; border-color: #2D2D45 !important; }
+  .quick-actions-panel { background: #1E1E2E !important; border-color: #2D2D45 !important; }
+
+  /* Section header */
+  .section-header      { border-bottom-color: #2D2D45 !important;
+    h2 { color: #F3F4F6 !important; }
+  }
+  .activity-count      { background: #252535 !important; border-color: #2D2D45 !important; color: #6B7280 !important; }
+
+  /* Header */
+  .admin-header        { border-bottom-color: #2D2D45 !important; }
+  .header-left h1      { color: #F3F4F6 !important; }
+
+  /* Stat cards — value + accent borders */
+  .stat-value          { color: #F3F4F6 !important; }
+  .stat-card.accent-blue   { border-top-color: #60A5FA !important;
+    .stat-icon-wrap { background: rgba(96,165,250,0.15) !important; color: #60A5FA !important; }
+  }
+  .stat-card.accent-green  { border-top-color: #34D399 !important;
+    .stat-icon-wrap { background: rgba(52,211,153,0.15) !important; color: #34D399 !important; }
+  }
+  .stat-card.accent-orange { border-top-color: #FBBF24 !important;
+    .stat-icon-wrap { background: rgba(251,191,36,0.15) !important; color: #FBBF24 !important; }
+  }
+
+  /* Activity feed */
+  .activity-item       { border-bottom-color: #2D2D45 !important; }
+  .activity-item.even  { background: rgba(255,255,255,0.02) !important; }
+  .activity-item:hover { background: rgba(167,139,250,0.06) !important; }
+  .activity-user       { color: #F3F4F6 !important; }
+  .activity-action     { color: #9CA3AF !important; }
+  .avatar-bot          { background: rgba(167,139,250,0.15) !important; color: #A78BFA !important; }
+  .avatar-user         { background: rgba(107,114,128,0.15) !important; color: #9CA3AF !important; }
+
+  /* Quick actions */
+  .action-card         { border-bottom-color: #2D2D45 !important; }
+  .action-card:hover   { background: rgba(167,139,250,0.06) !important; }
+  .action-title        { color: #E5E7EB !important; }
+  .action-desc         { color: #6B7280 !important; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar-track { background: #1E1E2E; }
+  ::-webkit-scrollbar-thumb { background: #3A3A52; }
+
+  /* ═══════════════════════════════════════
+     WELCOME SCREEN — dark mode ambient bg + cards
+  ═══════════════════════════════════════ */
+  .welcome-screen {
+    background: radial-gradient(ellipse at 50% 50%, #1a0e2e 0%, #0d1a30 45%, #0a1f18 100%) !important;
+  }
+
+  .welcome-greeting h1 {
+    background: linear-gradient(135deg, #A78BFA, #60A5FA) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+  }
+
+  .welcome-subtitle { color: #9CA3AF !important; }
+
+  /* Glass suggestion cards: dark glass instead of white glass */
+  .suggestion-card {
+    background: rgba(255, 255, 255, 0.07) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: #E5E7EB !important;
+    &:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.12) !important;
+      border-color: rgba(167, 139, 250, 0.5) !important;
+    }
+  }
+  .suggestion-text { color: #D1D5DB !important; }
+
+  /* ═══════════════════════════════════════
+     KNOWLEDGE BASE SECTION — dark mode
+  ═══════════════════════════════════════ */
+  .kb-stats-bar .kb-stat      { background: #252535 !important; border-color: #3A3A52 !important; }
+  .kb-stat-label              { color: #9CA3AF !important; }
+  .kb-drop-zone               { background: #1E1E2E !important; border-color: #3A3A52 !important; }
+  .kb-drop-text               { color: #D1D5DB !important; }
+  .kb-table th                { background: #252535 !important; color: #9CA3AF !important; }
+  .kb-table td                { color: #D1D5DB !important; border-bottom-color: #2D2D45 !important; }
+  .kb-table tr:hover td       { background: rgba(255,255,255,0.03) !important; }
+  .kb-badge                   { background: rgba(109,40,217,0.25) !important; color: #C4B5FD !important; }
+  .danger-card                { background: #1A0A0A !important; border-color: #7F1D1D !important; }
+  .danger-card h3             { color: #FCA5A5 !important; }
+  .danger-card p              { color: #9CA3AF !important; }
+}
+
+/* --- Scrollbar --- */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--dxc-dark-gray);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--dxc-medium-gray);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dxc-purple);
+}

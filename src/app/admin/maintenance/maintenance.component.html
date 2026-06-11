@@ -1,0 +1,89 @@
+<div class="maintenance-container">
+  <!-- Toast notification -->
+  <div *ngIf="toastMessage" class="toast-notification">{{ toastMessage }}</div>
+  <header class="maintenance-header">
+    <div class="header-left">
+      <button class="btn btn-outline" (click)="goBack()">
+        <span>←</span> Retour
+      </button>
+      <h1>🔧 Maintenance</h1>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-outline" (click)="runBackup()">
+        <span>💾</span> Sauvegarde
+      </button>
+      <button class="btn btn-outline" (click)="cleanCache()">
+        <span>🧹</span> Nettoyer cache
+      </button>
+      <button class="btn btn-primary" (click)="optimizeDatabase()">
+        <span>⚡</span> Optimiser BDD
+      </button>
+    </div>
+  </header>
+
+  <!-- System Health -->
+  <section class="health-section">
+    <h2>État du système</h2>
+    <div class="health-grid">
+      <div *ngFor="let item of systemHealth" class="health-card" [class.warning]="item.status === 'warning'">
+        <div class="health-label">{{ item.component }}</div>
+        <div class="health-value">{{ item.value }}</div>
+        <div class="health-details">{{ item.details }}</div>
+        <div class="health-status" [class.status-good]="item.status === 'good'" [class.status-warning]="item.status === 'warning'">
+          {{ item.status === 'good' ? '✓' : '⚠️' }}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Maintenance Tasks -->
+  <section class="tasks-section">
+    <h2>Tâches de maintenance</h2>
+    <div class="tasks-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Tâche</th>
+            <th>Statut</th>
+            <th>Planification</th>
+            <th>Dernière exécution</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let task of maintenanceTasks">
+            <td>
+              <span *ngIf="editingTaskId !== task.id">{{ task.name }}</span>
+              <span *ngIf="editingTaskId === task.id" style="display:flex;gap:4px">
+                <input [(ngModel)]="editingTaskName" (keyup.enter)="saveEditTask(task)" (keyup.escape)="cancelEditTask()" style="flex:1;padding:2px 6px;border-radius:4px;border:1px solid var(--border)" />
+                <button class="btn-icon" (click)="saveEditTask(task)" title="Enregistrer">✓</button>
+                <button class="btn-icon" (click)="cancelEditTask()" title="Annuler">✕</button>
+              </span>
+            </td>
+            <td>
+              <span class="status" 
+                [class.status-active]="task.status === 'Active'"
+                [class.status-scheduled]="task.status === 'Programmée'"
+                [class.status-pending]="task.status === 'En attente'">
+                {{ task.status }}
+              </span>
+            </td>
+            <td>{{ task.schedule }}</td>
+            <td>{{ task.lastRun }}</td>
+            <td class="actions">
+              <button class="btn-icon" (click)="runTask(task)" title="Exécuter">
+                ▶️
+              </button>
+              <button class="btn-icon" (click)="startEditTask(task)" title="Modifier">
+                ✏️
+              </button>
+              <button class="btn-icon" (click)="deleteTask(task)" title="Supprimer">
+                🗑️
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>

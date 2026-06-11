@@ -1,0 +1,205 @@
+name: DXC Copilot — CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/dxc-copilot
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # JOB 1 — Lint & Build
+  # ─────────────────────────────────────────────────────────────
+  build:
+    name: 🔨 Build & Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npx ng lint --max-warnings 0 || true
+
+      - name: Build production bundle
+        run: npm run build -- --configuration production
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────
+  # JOB 2 — Unit Tests
+  # ─────────────────────────────────────────────────────────────
+  test:
+    name: 🧪 Unit Tests
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chrome (for Karma headless)
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Run tests (headless)
+        run: npm test -- --watch=false --browsers=ChromeHeadless --code-coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────
+  # JOB 3 — Docker Build & Push (main branch only)
+  # ─────────────────────────────────────────────────────────────
+  docker:
+    name: 🐳 Docker Build & Push
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  # ─────────────────────────────────────────────────────────────
+  # JOB 4 — Deploy to Staging
+  # ─────────────────────────────────────────────────────────────
+  deploy-staging:
+    name: 🚀 Deploy — Staging
+    runs-on: ubuntu-latest
+    needs: docker
+    environment:
+      name: staging
+      url: https://staging.copilot.dxc.com
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Deploy to staging server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /opt/dxc-copilot
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            docker-compose pull app
+            docker-compose up -d --no-deps --force-recreate app
+            docker image prune -f
+            echo "✅ Staging deployment complete — $(date)"
+
+      - name: Health check
+        run: |
+          sleep 15
+          curl -f https://staging.copilot.dxc.com/health || exit 1
+
+  # ─────────────────────────────────────────────────────────────
+  # JOB 5 — Deploy to Production (manual approval required)
+  # ─────────────────────────────────────────────────────────────
+  deploy-prod:
+    name: 🏭 Deploy — Production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    environment:
+      name: production
+      url: https://copilot.dxc.com
+
+    steps:
+      - name: Deploy to production server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            cd /opt/dxc-copilot
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            docker-compose pull app
+            docker-compose up -d --no-deps --force-recreate app
+            docker image prune -f
+            echo "✅ Production deployment complete — $(date)"
+
+      - name: Production health check
+        run: |
+          sleep 20
+          curl -f https://copilot.dxc.com/health || exit 1
+
+      - name: Notify Teams on success
+        if: success()
+        run: |
+          curl -H "Content-Type: application/json" -d '{
+            "@type": "MessageCard",
+            "@context": "http://schema.org/extensions",
+            "themeColor": "00B050",
+            "summary": "DXC Copilot deployed",
+            "sections": [{ "activityTitle": "✅ DXC Copilot deployed to Production", "activitySubtitle": "SHA: ${{ github.sha }}" }]
+          }' ${{ secrets.TEAMS_WEBHOOK_URL }} || true

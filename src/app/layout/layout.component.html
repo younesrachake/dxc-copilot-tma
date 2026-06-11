@@ -1,0 +1,165 @@
+<div class="session-expiry-warning" *ngIf="showSessionWarning">
+  Votre session expire dans moins de 2 minutes.
+  <button (click)="dismissSessionWarning()">Fermer</button>
+</div>
+
+<div class="layout-container">
+  <!-- Mobile Menu Toggle -->
+  <button class="mobile-menu-toggle" (click)="toggleSidebar()" *ngIf="!isSidebarOpen">
+    <span>☰</span>
+  </button>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" [class.open]="isSidebarOpen" [class.collapsed]="isCollapsed">
+    <!-- Mobile Close Button -->
+    <button class="mobile-close-btn" (click)="closeSidebar()" *ngIf="isSidebarOpen">
+      <span>✕</span>
+    </button>
+
+    <div class="sidebar-top">
+      <div class="brand">
+        <img class="brand-logo-img" src="assets/images/dxc-logo.png" alt="DXC Technology" />
+        <span>DXC Copilot</span>
+      </div>
+
+      <button class="new-chat-btn" (click)="newChat()">
+        <span class="nav-icon">+</span> <span class="nav-text">Nouveau chat</span>
+      </button>
+
+      <!-- History List -->
+      <div class="history-group">
+        <div class="history-title">Conversations</div>
+        <ul class="history-list">
+          <li *ngFor="let chat of history"
+              class="history-item"
+              [class.active]="chat.id === activeChatId"
+              (click)="navigateToChat(chat)">
+
+            <div class="item-main-content">
+              <span class="item-topic" *ngIf="renamingChatId !== chat.id">{{ chat.topic }}</span>
+              <span *ngIf="renamingChatId === chat.id" style="display:flex;gap:4px;align-items:center;flex:1" (click)="$event.stopPropagation()">
+                <input [(ngModel)]="renamingChatName" (keyup.enter)="saveRenameChat(chat)" (keyup.escape)="cancelRenameChat()" style="flex:1;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:0.8rem" />
+                <button class="btn-icon" (click)="saveRenameChat(chat)" title="Enregistrer">✓</button>
+                <button class="btn-icon" (click)="cancelRenameChat()" title="Annuler">✕</button>
+              </span>
+              <div class="item-meta">
+                <span class="item-time">{{ chat.time }}</span>
+                <button class="item-options-btn" (click)="toggleOptions($event, chat)">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 13C12.5523 13 13 12.5523 13 12C13 11.4477 12.5523 11 12 11C11.4477 11 11 11.4477 11 12C11 12.5523 11.4477 13 12 13Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M12 6C12.5523 6 13 5.55228 13 5C13 4.44772 12.5523 4 12 4C11.4477 4 11 4.44772 11 5C11 5.55228 11.4477 6 12 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M12 20C12.5523 20 13 19.5523 13 19C13 18.4477 12.5523 18 12 18C11.4477 18 11 18.4477 11 19C11 19.5523 11.4477 20 12 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="item-footer" *ngIf="chat.pinned">
+              <span class="pinned-badge">📌 Épinglé</span>
+            </div>
+
+            <!-- Options Menu -->
+            <div class="options-menu" *ngIf="chat.showOptions" (click)="$event.stopPropagation()">
+              <ul>
+                <li (click)="pinChat($event, chat)">{{ chat.pinned ? 'Désépingler' : 'Épingler' }}</li>
+                <li (click)="startRenameChat($event, chat)">Renommer</li>
+                <li (click)="shareChat($event, chat)">Partager</li>
+                <li (click)="saveChatAs($event, chat)">Sauvegarder sous...</li>
+                <li class="delete" (click)="deleteChat($event, chat)">Supprimer</li>
+              </ul>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="sidebar-bottom">
+      <ul class="nav-list">
+        <li class="nav-item" routerLink="/chat" routerLinkActive="active">
+          <span class="nav-icon">💬</span> <span class="nav-text">Chat</span>
+        </li>
+        <li class="nav-item" routerLink="/settings" routerLinkActive="active">
+          <span class="nav-icon">⚙️</span> <span class="nav-text">Paramètres</span>
+        </li>
+        <li class="nav-item" routerLink="/viewer" routerLinkActive="active">
+          <span class="nav-icon">📄</span> <span class="nav-text">Documents</span>
+        </li>
+        <li class="nav-item" *ngIf="isAdmin" routerLink="/admin" routerLinkActive="active">
+          <span class="nav-icon">🔧</span> <span class="nav-text">Administration</span>
+        </li>
+      </ul>
+
+      <!-- Theme Toggle -->
+      <div class="theme-toggle-row">
+        <button class="theme-toggle-btn" (click)="toggleTheme()" [title]="isDark ? 'Passer en mode clair' : 'Passer en mode sombre'">
+          <span class="theme-icon">{{ isDark ? '☀️' : '🌙' }}</span>
+          <span class="nav-text">{{ isDark ? 'Mode clair' : 'Mode sombre' }}</span>
+          <span class="theme-pill" [class.dark]="isDark">{{ isDark ? 'ON' : 'OFF' }}</span>
+        </button>
+      </div>
+
+      <div class="sidebar-collapse-toggle">
+        <button class="collapse-btn" (click)="toggleCollapse()">
+          <svg class="collapse-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15 19L8 12L15 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="nav-text">Réduire</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="main-content">
+    <router-outlet></router-outlet>
+  </main>
+</div>
+
+<!-- Mobile Overlay -->
+<div class="mobile-overlay" [class.active]="isSidebarOpen" (click)="closeSidebar()"></div>
+
+<!-- ═══════════════════════════════════════
+     COMMAND PALETTE (Ctrl+K)
+═══════════════════════════════════════ -->
+<div class="cmd-overlay" *ngIf="showCmdPalette" (click)="closeCmdPalette()">
+  <div class="cmd-palette" (click)="$event.stopPropagation()">
+
+    <div class="cmd-search-row">
+      <span class="cmd-search-icon">🔍</span>
+      <input class="cmd-search-input"
+             type="text"
+             [(ngModel)]="cmdQuery"
+             (ngModelChange)="onCmdQueryChange()"
+             placeholder="Rechercher ou taper une commande..."
+             autofocus />
+      <span class="cmd-hint">ESC pour fermer</span>
+    </div>
+
+    <div class="cmd-list">
+      <div *ngFor="let item of filteredCmdItems; let i = index"
+           class="cmd-item"
+           [class.selected]="selectedCmdIndex === i"
+           (click)="runCmdItem(item)"
+           (mouseenter)="selectedCmdIndex = i">
+        <span class="cmd-item-icon">{{ item.icon }}</span>
+        <div class="cmd-item-content">
+          <span class="cmd-item-label">{{ item.label }}</span>
+          <span class="cmd-item-category">{{ categoryLabel(item.category) }}</span>
+        </div>
+        <span class="cmd-item-shortcut" *ngIf="item.shortcut">{{ item.shortcut }}</span>
+        <span class="cmd-item-enter" *ngIf="selectedCmdIndex === i">↵</span>
+      </div>
+
+      <div class="cmd-empty" *ngIf="filteredCmdItems.length === 0">
+        Aucun résultat pour "{{ cmdQuery }}"
+      </div>
+    </div>
+
+    <div class="cmd-footer">
+      <span><kbd>↑</kbd><kbd>↓</kbd> Naviguer</span>
+      <span><kbd>↵</kbd> Sélectionner</span>
+      <span><kbd>Esc</kbd> Fermer</span>
+      <span class="cmd-footer-hint">Ctrl+K pour rouvrir</span>
+    </div>
+  </div>
+</div>

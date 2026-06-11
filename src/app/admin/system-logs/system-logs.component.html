@@ -1,0 +1,65 @@
+<div class="logs-container">
+  <header class="logs-header">
+    <div class="header-left">
+      <button class="btn btn-outline" (click)="goBack()">
+        <span>←</span> Retour
+      </button>
+      <h1>📝 Journaux système</h1>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-outline" (click)="refreshLogs()">
+        <span>🔄</span> Actualiser
+      </button>
+      <button class="btn btn-outline" (click)="exportLogs()">
+        <span>📥</span> Exporter
+      </button>
+      <button class="btn btn-primary" (click)="clearLogs()">
+        <span>🗑️</span> Effacer
+      </button>
+    </div>
+  </header>
+
+  <div class="filters">
+    <div class="search-box">
+      <span>🔍</span>
+      <input 
+        type="text" 
+        [(ngModel)]="searchTerm" 
+        (input)="filterLogs()"
+        placeholder="Rechercher dans les logs..."
+      >
+    </div>
+    <select [(ngModel)]="selectedLevel" (change)="filterLogs()" class="filter-select">
+      <option value="all">Tous les niveaux</option>
+      <option value="INFO">INFO</option>
+      <option value="WARNING">WARNING</option>
+      <option value="ERROR">ERROR</option>
+    </select>
+    <select [(ngModel)]="selectedService" (change)="filterLogs()" class="filter-select">
+      <option value="all">Tous les services</option>
+      <option value="API Gateway">API Gateway</option>
+      <option value="Auth Service">Auth Service</option>
+      <option value="Chat Service">Chat Service</option>
+      <option value="Document Service">Document Service</option>
+      <option value="Analytics Service">Analytics Service</option>
+    </select>
+  </div>
+
+  <div class="logs-list">
+    <div *ngFor="let log of filteredLogs" class="log-item" [class.error]="log.level === 'ERROR'" [class.warning]="log.level === 'WARNING'">
+      <div class="log-header">
+        <span class="log-level" [class.level-info]="log.level === 'INFO'" [class.level-warning]="log.level === 'WARNING'" [class.level-error]="log.level === 'ERROR'">
+          {{ log.level }}
+        </span>
+        <span class="log-timestamp">{{ log.timestamp | date:'dd/MM/yyyy HH:mm:ss' }}</span>
+        <span class="log-service">{{ log.service }}</span>
+        <span class="log-user">{{ log.user }}</span>
+      </div>
+      <div class="log-message">{{ log.message }}</div>
+    </div>
+
+    <div *ngIf="filteredLogs.length === 0" class="no-logs">
+      Aucun log trouvé
+    </div>
+  </div>
+</div>

@@ -1,0 +1,237 @@
+:host {
+  display: flex;
+  height: 100vh;
+  background-color: var(--dxc-light-gray-alt);
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.settings-container {
+  background-color: var(--dxc-white);
+  width: 100%;
+  max-width: 900px;
+  height: 600px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--dxc-border);
+}
+
+/* --- Sidebar --- */
+.settings-sidebar {
+  width: 250px;
+  background-color: var(--dxc-light-gray);
+  border-right: 1px solid var(--dxc-border);
+  padding: 30px 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-header {
+  margin-bottom: 30px;
+}
+
+.settings-header h2 {
+  font-size: 1.2rem;
+  color: var(--dxc-black);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.nav-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.nav-item {
+  padding: 10px 15px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--dxc-medium-gray);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-item:hover {
+  background-color: rgba(95, 37, 159, 0.1);
+  color: var(--dxc-purple);
+}
+
+.nav-item.active {
+  background-color: var(--dxc-purple);
+  color: var(--dxc-white);
+  font-weight: 600;
+}
+
+/* --- Main Content --- */
+.settings-main {
+  flex: 1;
+  padding: 40px;
+  overflow-y: auto;
+}
+
+/* ── Override global dark-input styles for this light card ── */
+.settings-form .input-group label {
+  color: #6B7280;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.settings-form .input-group input,
+.settings-form .input-group textarea,
+.settings-form .input-group select {
+  background: var(--dxc-light-gray, #F9FAFB);
+  border: 1.5px solid var(--dxc-border, #E5E7EB);
+  color: var(--dxc-dark-gray, #1A1A1A);
+  border-radius: 8px;
+  font-size: 0.9rem;
+
+  &:focus {
+    border-color: #7C3AED;
+    background: var(--dxc-white, #fff);
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+  }
+}
+
+.settings-form .btn-primary {
+  width: 100%;
+  padding: 12px;
+  font-size: 0.95rem;
+  border-radius: 8px;
+  justify-content: center;
+}
+
+.tab-content h3 {
+  font-size: 1.5rem;
+  color: var(--dxc-black);
+  margin-bottom: 30px;
+  border-bottom: 2px solid var(--dxc-purple);
+  padding-bottom: 10px;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 500px;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.checkbox-group label {
+  margin: 0;
+  cursor: pointer;
+  font-weight: 400;
+}
+
+/* --- Security Section --- */
+.security-section {
+  margin-bottom: 30px;
+}
+
+.security-section h4 {
+  font-size: 1.1rem;
+  color: var(--dxc-dark-gray);
+  margin-bottom: 20px;
+}
+
+/* --- API Section --- */
+.api-section {
+  margin-bottom: 30px;
+}
+
+.api-section h4 {
+  font-size: 1.1rem;
+  color: var(--dxc-dark-gray);
+  margin-bottom: 15px;
+}
+
+.api-key-display {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.api-key-display code {
+  background-color: var(--dxc-light-gray);
+  padding: 10px 15px;
+  border-radius: 6px;
+  font-family: 'Courier New', monospace;
+  color: var(--dxc-dark-gray);
+  flex: 1;
+}
+
+.endpoint-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.endpoint-item {
+  background-color: var(--dxc-light-gray);
+  padding: 15px;
+  border-radius: 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+.endpoint-item strong {
+  color: var(--dxc-purple);
+}
+
+/* --- Responsive Design --- */
+@media (max-width: 768px) {
+  :host {
+    padding: 10px;
+  }
+
+  .settings-container {
+    height: auto;
+    max-height: 90vh;
+    flex-direction: column;
+  }
+
+  .settings-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--dxc-border);
+    padding: 20px;
+  }
+
+  .settings-main {
+    padding: 20px;
+  }
+
+  .nav-list {
+    flex-direction: row;
+    gap: 10px;
+    overflow-x: auto;
+  }
+
+  .nav-item {
+    white-space: nowrap;
+    padding: 8px 12px;
+  }
+}

@@ -1,0 +1,210 @@
+<div class="settings-container">
+  <!-- Sidebar -->
+  <aside class="settings-sidebar">
+    <div class="settings-header">
+      <h2><span>⚙️</span> Paramètres</h2>
+    </div>
+    
+    <ul class="nav-list">
+      <li 
+        *ngFor="let tab of tabs" 
+        class="nav-item" 
+        [class.active]="activeTab === tab.id"
+        (click)="selectTab(tab.id)"
+      >
+        <span>{{ tab.icon }}</span> {{ tab.label }}
+      </li>
+    </ul>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="settings-main">
+    <!-- Global feedback toast -->
+    <div *ngIf="feedback" class="feedback-toast" [class.error]="feedback.startsWith('Erreur')">
+      {{ feedback }}
+    </div>
+    <!-- Profile Tab -->
+    <div *ngIf="activeTab === 'profile'" class="tab-content">
+      <h3>Profil utilisateur</h3>
+      <form (ngSubmit)="saveProfile()" class="settings-form">
+        <div class="input-group">
+          <label for="name">Nom complet</label>
+          <input 
+            type="text" 
+            id="name" 
+            [(ngModel)]="userProfile.name" 
+            name="name"
+            required
+          >
+        </div>
+        
+        <div class="input-group">
+          <label for="email">E-mail</label>
+          <input 
+            type="email" 
+            id="email" 
+            [(ngModel)]="userProfile.email" 
+            name="email"
+            required
+          >
+        </div>
+        
+        <div class="input-group">
+          <label for="department">Département</label>
+          <input 
+            type="text" 
+            id="department" 
+            [(ngModel)]="userProfile.department" 
+            name="department"
+          >
+        </div>
+        
+        <div class="input-group">
+          <label for="language">Langue</label>
+          <select 
+            id="language" 
+            [(ngModel)]="userProfile.language" 
+            name="language"
+          >
+            <option value="fr">Français</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Sauvegarder</button>
+      </form>
+    </div>
+
+    <!-- Preferences Tab -->
+    <div *ngIf="activeTab === 'preferences'" class="tab-content">
+      <h3>Préférences</h3>
+      <form (ngSubmit)="savePreferences()" class="settings-form">
+        <div class="input-group">
+          <label for="theme">Thème</label>
+          <select 
+            id="theme" 
+            [(ngModel)]="preferences.theme" 
+            name="theme"
+          >
+            <option value="light">Clair</option>
+            <option value="dark">Sombre</option>
+            <option value="auto">Auto</option>
+          </select>
+        </div>
+        
+        <div class="input-group checkbox-group">
+          <label>
+            <input 
+              type="checkbox" 
+              [(ngModel)]="preferences.notifications" 
+              name="notifications"
+            >
+            Activer les notifications
+          </label>
+        </div>
+        
+        <div class="input-group checkbox-group">
+          <label>
+            <input 
+              type="checkbox" 
+              [(ngModel)]="preferences.autoSave" 
+              name="autoSave"
+            >
+            Sauvegarde automatique
+          </label>
+        </div>
+        
+        <div class="input-group">
+          <label for="fontSize">Taille de police</label>
+          <select 
+            id="fontSize" 
+            [(ngModel)]="preferences.fontSize" 
+            name="fontSize"
+          >
+            <option value="small">Petit</option>
+            <option value="medium">Moyen</option>
+            <option value="large">Grand</option>
+          </select>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Sauvegarder</button>
+      </form>
+    </div>
+
+    <!-- Security Tab -->
+    <div *ngIf="activeTab === 'security'" class="tab-content">
+      <h3>Sécurité</h3>
+      <div class="security-section">
+        <h4>Changer le mot de passe</h4>
+        <form (ngSubmit)="updatePassword()" class="settings-form">
+          <div class="input-group">
+            <label for="currentPassword">Mot de passe actuel</label>
+            <input
+              type="password"
+              id="currentPassword"
+              name="currentPassword"
+              [(ngModel)]="passwordForm.currentPassword"
+              required
+              autocomplete="current-password"
+            >
+          </div>
+          <div class="input-group">
+            <label for="newPassword">Nouveau mot de passe</label>
+            <input
+              type="password"
+              id="newPassword"
+              name="newPassword"
+              [(ngModel)]="passwordForm.newPassword"
+              required
+              minlength="12"
+              autocomplete="new-password"
+            >
+            <small class="hint" *ngIf="passwordForm.newPassword && passwordForm.newPassword.length < 12">
+              Minimum 12 caractères ({{ passwordForm.newPassword.length }}/12)
+            </small>
+          </div>
+          <div class="input-group">
+            <label for="confirmPassword">Confirmer le mot de passe</label>
+            <input
+              type="password"
+              id="confirmPassword"
+              name="confirmPassword"
+              [(ngModel)]="passwordForm.confirmPassword"
+              required
+              autocomplete="new-password"
+            >
+            <small class="hint error"
+              *ngIf="passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword">
+              Les mots de passe ne correspondent pas.
+            </small>
+          </div>
+          <button type="submit" class="btn btn-primary" [disabled]="isUpdatingPassword">
+            {{ isUpdatingPassword ? 'Mise à jour...' : 'Mettre à jour' }}
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- API Tab -->
+    <div *ngIf="activeTab === 'api'" class="tab-content">
+      <h3>Configuration API</h3>
+      <div class="api-section">
+        <h4>Clé API</h4>
+        <div class="api-key-display">
+          <code>sk-•••••••••••••••••••••••••</code>
+          <button class="btn btn-outline" (click)="regenerateApiKey()">Regénérer</button>
+        </div>
+        
+        <h4>Endpoints</h4>
+        <div class="endpoint-list">
+          <div class="endpoint-item">
+            <strong>Chat API:</strong> https://api.dxc.com/v1/chat
+          </div>
+          <div class="endpoint-item">
+            <strong>Document API:</strong> https://api.dxc.com/v1/documents
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>

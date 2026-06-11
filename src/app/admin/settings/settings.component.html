@@ -1,0 +1,1082 @@
+<div class="settings-layout">
+
+  <!-- Left Sidebar Navigation -->
+  <aside class="settings-nav">
+    <div class="settings-nav-title">Paramètres</div>
+    <ul>
+      <li *ngFor="let s of sections"
+          class="settings-nav-item"
+          [class.active]="activeSection === s.id"
+          (click)="setSection(s.id)">
+        <span class="s-icon">{{ s.icon }}</span>
+        <span>{{ s.label }}</span>
+      </li>
+    </ul>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="settings-content">
+
+    <!-- Toast feedback -->
+    <div class="save-toast" *ngIf="savedFeedback">✔ {{ savedFeedback }}</div>
+
+    <!-- ══════════════════════════════════════════
+         GÉNÉRAL
+    ══════════════════════════════════════════ -->
+    <section *ngIf="activeSection === 'general'">
+      <div class="section-header">
+        <h2>🏢 Paramètres Généraux</h2>
+        <p>Configuration de base de la plateforme DXC Copilot.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Identité de la plateforme</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nom de la plateforme</label>
+            <input type="text" [(ngModel)]="general.platformName" />
+          </div>
+          <div class="form-group">
+            <label>Email administrateur</label>
+            <input type="email" [(ngModel)]="general.adminEmail" />
+          </div>
+          <div class="form-group">
+            <label>Email support</label>
+            <input type="email" [(ngModel)]="general.supportEmail" />
+          </div>
+          <div class="form-group">
+            <label>Langue par défaut</label>
+            <select [(ngModel)]="general.language">
+              <option value="fr">Français</option>
+              <option value="en">English</option>
+              <option value="es">Español</option>
+              <option value="ar">العربية</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Fuseau horaire</label>
+            <select [(ngModel)]="general.timezone">
+              <option value="Africa/Casablanca">Africa/Casablanca (UTC+1)</option>
+              <option value="Europe/Paris">Europe/Paris (UTC+2)</option>
+              <option value="UTC">UTC</option>
+              <option value="America/New_York">America/New_York (UTC-5)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Format de date</label>
+            <select [(ngModel)]="general.dateFormat">
+              <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+              <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+              <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+            </select>
+          </div>
+          <div class="form-group full-width">
+            <label>Description de la plateforme</label>
+            <textarea rows="3" [(ngModel)]="general.platformDescription"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Accès & Sessions</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Sessions max par utilisateur</label>
+            <input type="number" [(ngModel)]="general.maxConcurrentSessions" min="1" max="10" />
+          </div>
+        </div>
+        <div class="toggle-list">
+          <div class="toggle-row">
+            <div>
+              <span class="toggle-label">Mode maintenance</span>
+              <span class="toggle-desc">Bloquer l'accès à tous les utilisateurs non-admin</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" [(ngModel)]="general.maintenanceMode" />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <span class="toggle-label">Ouverture des inscriptions</span>
+              <span class="toggle-desc">Permettre aux nouveaux utilisateurs de s'inscrire librement</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" [(ngModel)]="general.registrationOpen" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-actions">
+        <button class="btn-save" (click)="save('general')">💾 Sauvegarder</button>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════
+         SÉCURITÉ
+    ══════════════════════════════════════════ -->
+    <section *ngIf="activeSection === 'security'">
+      <div class="section-header">
+        <h2>🔒 Sécurité</h2>
+        <p>Politique de sécurité, authentification et contrôle d'accès.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Politique de mots de passe</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Longueur minimale</label>
+            <input type="number" [(ngModel)]="security.minPasswordLength" min="6" max="32" />
+          </div>
+          <div class="form-group">
+            <label>Expiration (jours, 0 = jamais)</label>
+            <input type="number" [(ngModel)]="security.passwordExpireDays" min="0" />
+          </div>
+        </div>
+        <div class="toggle-list">
+          <div class="toggle-row">
+            <div><span class="toggle-label">Majuscules obligatoires</span></div>
+            <label class="toggle-switch"><input type="checkbox" [(ngModel)]="security.requireUppercase" /><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><span class="toggle-label">Chiffres obligatoires</span></div>
+            <label class="toggle-switch"><input type="checkbox" [(ngModel)]="security.requireNumbers" /><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><span class="toggle-label">Caractères spéciaux obligatoires</span></div>
+            <label class="toggle-switch"><input type="checkbox" [(ngModel)]="security.requireSpecialChars" /><span class="slider"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Verrouillage de compte</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Tentatives max avant verrouillage</label>
+            <input type="number" [(ngModel)]="security.maxFailedAttempts" min="3" max="20" />
+          </div>
+          <div class="form-group">
+            <label>Durée de verrouillage (minutes)</label>
+            <input type="number" [(ngModel)]="security.lockoutDurationMin" min="1" />
+          </div>
+          <div class="form-group">
+            <label>Timeout session (minutes)</label>
+            <input type="number" [(ngModel)]="security.sessionTimeoutMin" min="5" />
+          </div>
+          <div class="form-group">
+            <label>Rate limit auth (tentatives/min)</label>
+            <input type="number" [(ngModel)]="security.rateLimitAuth" min="1" />
+          </div>
+        </div>
+        <div class="toggle-list">
+          <div class="toggle-row">
+            <div><span class="toggle-label">Prolonger session à l'activité</span></div>
+            <label class="toggle-switch"><input type="checkbox" [(ngModel)]="security.extendSessionOnActivity" /><span class="slider"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Double authentification (2FA)</h3>
+        <div class="toggle-list">
+          <div class="toggle-row">
+            <div>
+              <span class="toggle-label">Rendre le 2FA obligatoire</span>
+              <span class="toggle-desc">Tous les utilisateurs devront activer le 2FA à la prochaine connexion</span>
+            </div>
+            <label class="toggle-switch"><input type="checkbox" [(ngModel)]="security.twoFactorRequired" /><span class="slider"></span></label>
+          </div>
+        </div>
+        <div class="form-grid" style="margin-top:16px">
+          <div class="form-group">
+            <label>Méthode 2FA par défaut</label>
+            <select [(ngModel)]="security.twoFactorMethod">
+              <option value="totp">Authenticator (TOTP)</option>
+              <option value="email">Code par email</option>
+              <option value="sms">SMS</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Sécurité réseau & SSL</h3>
+        <div class="toggle-list">
+          <div class="toggle-row">
+            <div><span class="toggle-label">SSL/TLS requis</span></div>
+            <label class="toggle-switch"><input type="checkbox" [(ngModel)]="security.sslRequired" /><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><span class="toggle-label">Whitelist IP active</span><span class="toggle-desc">Restreindre l'accès aux IPs listées ci-dessous</span></div>
+            <label class="toggle-switch"><input type="checkbox" [(ngModel)]="security.ipWhitelistEnabled" /><span class="slider"></span></label>
+          </div>
+        </div>
+        <div class="form-grid" style="margin-top:16px">
+          <div class="form-group full-width" *ngIf="security.ipWhitelistEnabled">
+            <label>IPs autorisées (CIDR, une par ligne)</label>
+            <textarea rows="4" [(ngModel)]="security.ipWhitelist"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Durée HSTS (secondes)</label>
+            <input type="number" [(ngModel)]="security.hstsDuration" />
+          </div>
+          <div class="form-group">
+            <label>Origines CORS autorisées</label>
+            <input type="text" [(ngModel)]="security.corsOrigins" placeholder="https://copilot.dxc.com" />
+          </div>
+        </div>
+      </div>
+
+      <div class="section-actions">
+        <button class="btn-save" (click)="save('security')">💾 Sauvegarder</button>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════
+         UTILISATEURS & ACCÈS
+    ══════════════════════════════════════════ -->
+    <section *ngIf="activeSection === 'users'">
+      <div class="section-header">
+        <h2>👥 Utilisateurs & Accès</h2>
+        <p>Gestion des rôles, permissions et intégration d'annuaires.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Limites & Inscription</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nombre max d'utilisateurs</label>
+            <input type="number" [(ngModel)]="users.maxUsers" min="1" />
+          </div>
+          <div class="form-group">
+            <label>Rôle par défaut à l'inscription</label>
+            <select [(ngModel)]="users.defaultRole">
+              <option value="user">Utilisateur</option>
+              <option value="guest">Invité</option>
+              <option value="manager">Manager</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Désactiver après inactivité (jours)</label>
+            <input type="number" [(ngModel)]="users.inactiveUserDays" min="30" />
+          </div>
+        </div>
+        <div class="toggle-list">
+          <div class="toggle-row">
+            <div><span class="toggle-label">Auto-inscription libre</span><span class="toggle-desc">Les utilisateurs peuvent créer un compte sans invitation</span></div>
+            <label class="toggle-switch"><input type="checkbox" [(ngModel)]="users.allowSelfRegistration" /><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><span class="toggle-label">Vérification email obligatoire</span></div>
+            <label class="toggle-switch"><input type="checkbox" [(ngModel)]="users.requireEmailVerification" /><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><span class="toggle-label">Autoriser la modification du profil</span></div>
+            <label class="toggle-switch"><input type="checkbox" [(ngModel)]="users.allowProfileEdit" /><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div><span class="toggle-label">Désactivation automatique des inactifs</span></div>
+            <label class="toggle-switch"><input type="checkbox" [(ngModel)]="users.autoDeactivateInactive" /><span class="slider"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Rôles et permissions</h3>
+        <table class="settings-table">
+          <thead><tr><th>Rôle</th><th>Utilisateurs</th><th>Permissions</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let role of users.roles">
+              <td><strong>{{ role.name }}</strong></td>
+              <td><span class="badge-count">{{ role.users }}</span></td>
+              <td>
+                <span *ngFor="let p of role.permissions" class="perm-badge">{{ p }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Annuaire LDAP / Active Directory</h3>
+        <div class="toggle-list">
+          <div class="toggle-row">
+            <div><span class="toggle-label">Activer l'intégration LDAP</span></div>
+            <label class="toggle-switch"><input type="checkbox" [(ngModel)]="users.ldapEnabled" /><span class="slider"></span></label>
+          </div>
+        </div>
+        <div class="form-grid" style="margin-top:16px" *ngIf="users.ldapEnabled">
+          <div class="form-group"><label>Hôte LDAP</label><input type="text" [(ngModel)]="users.ldapHost" /></div>
+          <div class="form-group"><label>Port</label><input type="number" [(ngModel)]="users.ldapPort" /></div>
+          <div class="form-group"><label>Base DN</label><input type="text" [(ngModel)]="users.ldapBaseDn" /></div>
+          <div class="form-group"><label>Bind DN</label><input type="text" [(ngModel)]="users.ldapBindDn" /></div>
+          <div class="form-group"><label>Mot de passe Bind</label><input type="password" [(ngModel)]="users.ldapBindPassword" /></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">SSO (Single Sign-On)</h3>
+        <div class="toggle-list">
+          <div class="toggle-row">
+            <div><span class="toggle-label">Activer le SSO</span></div>
+            <label class="toggle-switch"><input type="checkbox" [(ngModel)]="users.ssoEnabled" /><span class="slider"></span></label>
+          </div>
+        </div>
+        <div class="form-grid" style="margin-top:16px" *ngIf="users.ssoEnabled">
+          <div class="form-group">
+            <label>Fournisseur SSO</label>
+            <select [(ngModel)]="users.ssoProvider">
+              <option value="saml">SAML 2.0</option>
+              <option value="oidc">OpenID Connect</option>
+              <option value="oauth2">OAuth 2.0</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Entry Point URL</label><input type="url" [(ngModel)]="users.ssoEntryPoint" /></div>
+        </div>
+      </div>
+
+      <div class="section-actions">
+        <button class="btn-save" (click)="save('users')">💾 Sauvegarder</button>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════
+         IA & MODÈLES LLM
+    ══════════════════════════════════════════ -->
+    <section *ngIf="activeSection === 'ai'">
+      <div class="section-header">
+        <h2>🤖 IA & Modèles LLM</h2>
+        <p>Configuration des modèles de langage, paramètres d'inférence et sécurité IA.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Modèles</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Modèle principal</label>
+            <select [(ngModel)]="ai.defaultModel">
+              <option value="gpt-4-turbo">GPT-4 Turbo</option>
+              <option value="gpt-4o">GPT-4o</option>
+              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+              <option value="claude-3-opus">Claude 3 Opus</option>
+              <option value="mistral-large">Mistral Large</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Modèle de secours (fallback)</label>
+            <select [(ngModel)]="ai.fallbackModel">
+              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+              <option value="gpt-4o-mini">GPT-4o Mini</option>
+              <option value="mistral-7b">Mistral 7B</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Paramètres d'inférence</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Température (0 = précis, 1 = créatif)</label>
+            <input type="number" [(ngModel)]="ai.temperature" min="0" max="2" step="0.1" />
+          </div>
+          <div class="form-group">
+            <label>Max Tokens par réponse</label>
+            <input type="number" [(ngModel)]="ai.maxTokens" min="256" max="32768" />
+          </div>
+          <div class="form-group">
+            <label>Fenêtre de contexte (tokens)</label>
+            <input type="number" [(ngModel)]="ai.contextWindow" min="1024" max="128000" />
+          </div>
+          <div class="form-group">
+            <label>Top P</label>
+            <input type="number" [(ngModel)]="ai.topP" min="0" max="1" step="0.05" />
+          </div>
+          <div class="form-group">
+            <label>Frequency Penalty</label>
+            <input type="number" [(ngModel)]="ai.frequencyPenalty" min="-2" max="2" step="0.1" />
+          </div>
+          <div class="form-group">
+            <label>Presence Penalty</label>
+            <input type="number" [(ngModel)]="ai.presencePenalty" min="-2" max="2" step="0.1" />
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Prompt système global</h3>
+        <div class="form-group">
+          <label>Instructions système envoyées à chaque conversation</label>
+          <textarea rows="5" [(ngModel)]="ai.systemPrompt"></textarea>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Rate limiting & Cache</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Requêtes max par utilisateur</label>
+            <input type="number" [(ngModel)]="ai.rateLimitPerUser" min="1" />
+          </div>
+          <div class="form-group">
+            <label>Période de limite</label>
+            <select [(ngModel)]="ai.rateLimitPeriod">
+              <option value="minute">Par minute</option>
+              <option value="hour">Par heure</option>
+              <option value="day">Par jour</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Max requêtes/min (global)</label>
+            <input type="number" [(ngModel)]="ai.maxRequestsPerMinute" min="1" />
+          </div>
+          <div class="form-group">
+            <label>Durée cache réponses (minutes)</label>
+            <input type="number" [(ngModel)]="ai.cacheTtlMin" min="0" />
+          </div>
+        </div>
+        <div class="toggle-list">
+          <div class="toggle-row"><div><span class="toggle-label">Streaming des réponses</span><span class="toggle-desc">Afficher la réponse mot par mot en temps réel</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="ai.streamingEnabled" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Mise en cache des réponses similaires</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="ai.cacheResponses" /><span class="slider"></span></label></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Détection d'incidents automatique</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Seuil de déclenchement (occurrences)</label>
+            <input type="number" [(ngModel)]="ai.incidentThreshold" min="1" max="20" />
+          </div>
+          <div class="form-group">
+            <label>Filtre de contenu</label>
+            <select [(ngModel)]="ai.contentFilterLevel">
+              <option value="off">Désactivé</option>
+              <option value="low">Faible</option>
+              <option value="moderate">Modéré</option>
+              <option value="strict">Strict</option>
+            </select>
+          </div>
+        </div>
+        <div class="toggle-list">
+          <div class="toggle-row"><div><span class="toggle-label">Générer automatiquement un guide d'incident</span><span class="toggle-desc">Après {{ ai.incidentThreshold }} occurrences similaires en conversation</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="ai.autoGenerateGuide" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Journaliser les prompts</span><span class="toggle-desc">⚠ Sensible — stocke les messages utilisateurs dans les logs</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="ai.logPrompts" /><span class="slider"></span></label></div>
+        </div>
+      </div>
+
+      <div class="section-actions">
+        <button class="btn-save" (click)="save('ai')">💾 Sauvegarder</button>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════
+         NOTIFICATIONS
+    ══════════════════════════════════════════ -->
+    <section *ngIf="activeSection === 'notifications'">
+      <div class="section-header">
+        <h2>🔔 Notifications</h2>
+        <p>Configuration des alertes email, webhooks et intégrations de messagerie.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Serveur SMTP (Email)</h3>
+        <div class="toggle-list">
+          <div class="toggle-row"><div><span class="toggle-label">Activer les emails</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="notifications.emailEnabled" /><span class="slider"></span></label></div>
+        </div>
+        <div class="form-grid" style="margin-top:16px" *ngIf="notifications.emailEnabled">
+          <div class="form-group"><label>Hôte SMTP</label><input type="text" [(ngModel)]="notifications.smtpHost" /></div>
+          <div class="form-group"><label>Port SMTP</label><input type="number" [(ngModel)]="notifications.smtpPort" /></div>
+          <div class="form-group"><label>Utilisateur SMTP</label><input type="text" [(ngModel)]="notifications.smtpUser" /></div>
+          <div class="form-group"><label>Mot de passe SMTP</label><input type="password" [(ngModel)]="notifications.smtpPassword" /></div>
+          <div class="form-group"><label>Nom d'expéditeur</label><input type="text" [(ngModel)]="notifications.emailFromName" /></div>
+        </div>
+        <div class="toggle-list" *ngIf="notifications.emailEnabled">
+          <div class="toggle-row"><div><span class="toggle-label">TLS activé</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="notifications.smtpTls" /><span class="slider"></span></label></div>
+        </div>
+        <div class="section-actions" style="margin-top:12px" *ngIf="notifications.emailEnabled">
+          <button class="btn-secondary" (click)="testSmtp()" [disabled]="testingSmtp">
+            {{ testingSmtp ? '⏳ Envoi en cours…' : '📧 Envoyer un email de test' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Webhooks</h3>
+        <div class="toggle-list">
+          <div class="toggle-row"><div><span class="toggle-label">Activer les webhooks</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="notifications.webhookEnabled" /><span class="slider"></span></label></div>
+        </div>
+        <div class="form-grid" style="margin-top:16px" *ngIf="notifications.webhookEnabled">
+          <div class="form-group full-width"><label>URL Webhook</label><input type="url" [(ngModel)]="notifications.webhookUrl" placeholder="https://hooks.example.com/..." /></div>
+          <div class="form-group"><label>Secret de signature</label><input type="text" [(ngModel)]="notifications.webhookSecret" /></div>
+        </div>
+        <div class="section-actions" style="margin-top:12px" *ngIf="notifications.webhookEnabled">
+          <button class="btn-secondary" (click)="testWebhook()" [disabled]="testingWebhook">
+            {{ testingWebhook ? '⏳ Test en cours…' : '🔗 Tester le webhook' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Slack & Microsoft Teams</h3>
+
+        <!-- Slack -->
+        <div class="toggle-list">
+          <div class="toggle-row"><div><span class="toggle-label">Slack</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="notifications.slackEnabled" /><span class="slider"></span></label></div>
+        </div>
+        <div class="form-grid" style="margin-top:12px" *ngIf="notifications.slackEnabled">
+          <div class="form-group full-width">
+            <label>Webhook Slack</label>
+            <div class="webhook-row">
+              <input type="url" [(ngModel)]="notifications.slackWebhook" placeholder="https://hooks.slack.com/..." />
+              <button class="btn-preview" (click)="previewAlert('slack')" [class.active]="notifPreview === 'slack'">
+                👁 Prévisualiser l'alerte
+              </button>
+            </div>
+          </div>
+          <div class="form-group"><label>Canal</label><input type="text" [(ngModel)]="notifications.slackChannel" /></div>
+        </div>
+
+        <!-- Teams -->
+        <div class="toggle-list" style="margin-top:8px">
+          <div class="toggle-row"><div><span class="toggle-label">Microsoft Teams</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="notifications.teamsEnabled" /><span class="slider"></span></label></div>
+        </div>
+        <div class="form-grid" style="margin-top:12px" *ngIf="notifications.teamsEnabled">
+          <div class="form-group full-width">
+            <label>Webhook Teams</label>
+            <div class="webhook-row">
+              <input type="url" [(ngModel)]="notifications.teamsWebhook" placeholder="https://outlook.office.com/webhook/..." />
+              <button class="btn-preview" (click)="previewAlert('teams')" [class.active]="notifPreview === 'teams'">
+                👁 Prévisualiser l'alerte
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ TEAMS ADAPTIVE CARD MOCKUP ══ -->
+        <div class="notif-preview teams-preview" *ngIf="notifPreview === 'teams'">
+          <div class="preview-label">Aperçu — Microsoft Teams Adaptive Card</div>
+          <div class="teams-card">
+            <div class="teams-card-header">
+              <img class="teams-logo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%235B5EA6' d='M11.96 0C5.37 0 0 5.37 0 11.96c0 6.58 5.37 11.96 11.96 11.96 6.58 0 11.96-5.37 11.96-11.96C23.92 5.37 18.54 0 11.96 0z'/%3E%3C/svg%3E" alt="Teams" />
+              <div>
+                <span class="teams-sender">DXC Copilot</span>
+                <span class="teams-time">il y a 1 min</span>
+              </div>
+            </div>
+            <div class="teams-card-body">
+              <div class="teams-severity-bar p1"></div>
+              <div class="teams-content">
+                <div class="teams-title">🚨 Incident P1 — Critique</div>
+                <div class="teams-subtitle">API Gateway · Production</div>
+                <div class="teams-facts">
+                  <div class="teams-fact"><span>Détecté</span><strong>{{ general.platformName }}</strong></div>
+                  <div class="teams-fact"><span>Statut</span><strong class="t-red">En cours</strong></div>
+                  <div class="teams-fact"><span>Serveur</span><strong>prod-server-01</strong></div>
+                  <div class="teams-fact"><span>Priorité</span><strong class="t-red">P1 — Critique</strong></div>
+                </div>
+                <div class="teams-description">
+                  Dégradation critique des performances détectée sur l'API Gateway. Consommation mémoire à 96% — intervention immédiate requise.
+                </div>
+              </div>
+            </div>
+            <div class="teams-card-actions">
+              <button class="teams-action-btn primary">🎫 Créer ticket</button>
+              <button class="teams-action-btn">📊 Voir logs</button>
+              <button class="teams-action-btn">✅ Acquitter</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ SLACK BLOCK KIT MOCKUP ══ -->
+        <div class="notif-preview slack-preview" *ngIf="notifPreview === 'slack'">
+          <div class="preview-label">Aperçu — Slack Block Kit</div>
+          <div class="slack-card">
+            <div class="slack-sidebar-accent"></div>
+            <div class="slack-body">
+              <div class="slack-header">
+                <div class="slack-avatar">
+                  <span>DXC</span>
+                </div>
+                <div class="slack-meta">
+                  <span class="slack-appname">DXC Copilot</span>
+                  <span class="slack-app-badge">APP</span>
+                  <span class="slack-time">11:42</span>
+                </div>
+              </div>
+              <div class="slack-channel">{{ notifications.slackChannel || '#alerts' }}</div>
+              <div class="slack-block-section">
+                <p class="slack-block-text">*🚨 Alerte — Incident détecté sur `prod-server-01`*</p>
+                <p class="slack-block-sub">Plateforme : <strong>{{ general.platformName }}</strong> · Priorité : <strong class="s-red">P1</strong></p>
+              </div>
+              <div class="slack-block-divider"></div>
+              <div class="slack-fields">
+                <div class="slack-field"><span>Composant</span><strong>API Gateway</strong></div>
+                <div class="slack-field"><span>Mémoire</span><strong class="s-red">96%</strong></div>
+                <div class="slack-field"><span>Durée</span><strong>4 min</strong></div>
+                <div class="slack-field"><span>Statut</span><strong class="s-yellow">⚠ En cours</strong></div>
+              </div>
+              <div class="slack-actions">
+                <button class="slack-btn primary">Créer ticket Jira</button>
+                <button class="slack-btn">Voir les logs</button>
+                <button class="slack-btn danger">Escalader P0</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Règles d'alerte</h3>
+        <div class="toggle-list">
+          <div class="toggle-row"><div><span class="toggle-label">Alerter sur incident détecté</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="notifications.alertOnIncident" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Alerte Incidents P1 (critique)</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="notifications.alertOnP1" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Alerte Incidents P2 (majeur)</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="notifications.alertOnP2" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Alerte Incidents P3 (mineur)</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="notifications.alertOnP3" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Alerte charge élevée (>{{ notifications.loadThresholdPct }}%)</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="notifications.alertOnHighLoad" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Alerte tentative de connexion échouée</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="notifications.alertOnFailedLogin" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Alerte nouvel utilisateur</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="notifications.alertOnNewUser" /><span class="slider"></span></label></div>
+        </div>
+        <div class="form-grid" style="margin-top:16px">
+          <div class="form-group"><label>Seuil de charge CPU/RAM (%)</label><input type="number" [(ngModel)]="notifications.loadThresholdPct" min="50" max="99" /></div>
+          <div class="form-group"><label>Fréquence digest</label><select [(ngModel)]="notifications.digestFrequency"><option value="realtime">Temps réel</option><option value="hourly">Toutes les heures</option><option value="daily">Quotidien</option><option value="weekly">Hebdomadaire</option></select></div>
+        </div>
+      </div>
+
+      <div class="section-actions">
+        <button class="btn-save" (click)="save('notifications')">💾 Sauvegarder</button>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════
+         INTÉGRATIONS
+    ══════════════════════════════════════════ -->
+    <section *ngIf="activeSection === 'integrations'">
+      <div class="section-header">
+        <h2>🔗 Intégrations</h2>
+        <p>Connexion aux outils tiers et gestion des clés API.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Clés API DXC Copilot</h3>
+        <div class="api-key-row">
+          <span class="key-label">Clé publique</span>
+          <code class="key-value">{{ integrations.apiKeyPublic }}</code>
+          <button class="btn-secondary small" (click)="regenerateApiKey('public')" [disabled]="regenLoading === 'public'">
+            {{ regenLoading === 'public' ? '⏳…' : '🔄 Regénérer' }}
+          </button>
+        </div>
+        <div class="api-key-row">
+          <span class="key-label">Clé secrète</span>
+          <code class="key-value">{{ integrations.apiKeySecret }}</code>
+          <button class="btn-secondary small" (click)="regenerateApiKey('secret')" [disabled]="regenLoading === 'secret'">
+            {{ regenLoading === 'secret' ? '⏳…' : '🔄 Regénérer' }}
+          </button>
+        </div>
+        <div class="form-grid" style="margin-top:16px">
+          <div class="form-group"><label>Rate limit API (req/heure)</label><input type="number" [(ngModel)]="integrations.apiRateLimit" /></div>
+          <div class="form-group"><label>Version API</label><select [(ngModel)]="integrations.apiVersion"><option value="v1">v1</option><option value="v2">v2</option></select></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Jira</h3>
+        <div class="toggle-list"><div class="toggle-row"><div><span class="toggle-label">Activer Jira</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="integrations.jiraEnabled" /><span class="slider"></span></label></div></div>
+        <div class="form-grid" style="margin-top:16px" *ngIf="integrations.jiraEnabled">
+          <div class="form-group"><label>URL Jira</label><input type="url" [(ngModel)]="integrations.jiraUrl" /></div>
+          <div class="form-group"><label>API Token</label><input type="password" [(ngModel)]="integrations.jiraToken" /></div>
+          <div class="form-group"><label>Clé de projet</label><input type="text" [(ngModel)]="integrations.jiraProject" /></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">ServiceNow</h3>
+        <div class="toggle-list"><div class="toggle-row"><div><span class="toggle-label">Activer ServiceNow</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="integrations.serviceNowEnabled" /><span class="slider"></span></label></div></div>
+        <div class="form-grid" style="margin-top:16px" *ngIf="integrations.serviceNowEnabled">
+          <div class="form-group"><label>Instance</label><input type="text" [(ngModel)]="integrations.serviceNowInstance" /></div>
+          <div class="form-group"><label>Utilisateur</label><input type="text" [(ngModel)]="integrations.serviceNowUser" /></div>
+          <div class="form-group"><label>Mot de passe</label><input type="password" [(ngModel)]="integrations.serviceNowPassword" /></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Confluence</h3>
+        <div class="toggle-list"><div class="toggle-row"><div><span class="toggle-label">Activer Confluence</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="integrations.confluenceEnabled" /><span class="slider"></span></label></div></div>
+        <div class="form-grid" style="margin-top:16px" *ngIf="integrations.confluenceEnabled">
+          <div class="form-group"><label>URL Confluence</label><input type="url" [(ngModel)]="integrations.confluenceUrl" /></div>
+          <div class="form-group"><label>API Token</label><input type="password" [(ngModel)]="integrations.confluenceToken" /></div>
+          <div class="form-group"><label>Espace (Space Key)</label><input type="text" [(ngModel)]="integrations.confluenceSpace" /></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">GitHub</h3>
+        <div class="toggle-list"><div class="toggle-row"><div><span class="toggle-label">Activer GitHub</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="integrations.githubEnabled" /><span class="slider"></span></label></div></div>
+        <div class="form-grid" style="margin-top:16px" *ngIf="integrations.githubEnabled">
+          <div class="form-group"><label>Personal Access Token</label><input type="password" [(ngModel)]="integrations.githubToken" /></div>
+          <div class="form-group"><label>Organisation</label><input type="text" [(ngModel)]="integrations.githubOrg" /></div>
+        </div>
+      </div>
+
+      <div class="section-actions">
+        <button class="btn-save" (click)="save('integrations')">💾 Sauvegarder</button>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════
+         STOCKAGE & DONNÉES
+    ══════════════════════════════════════════ -->
+    <section *ngIf="activeSection === 'storage'">
+      <div class="section-header">
+        <h2>🗄️ Stockage & Données</h2>
+        <p>Rétention, backup, stockage objet et conformité RGPD.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Fournisseur de stockage</h3>
+        <div class="form-grid">
+          <div class="form-group"><label>Fournisseur</label><select [(ngModel)]="storage.storageProvider"><option value="s3">Amazon S3</option><option value="azure">Azure Blob</option><option value="gcs">Google Cloud Storage</option><option value="local">Stockage local</option></select></div>
+          <div class="form-group" *ngIf="storage.storageProvider === 's3'"><label>Bucket S3</label><input type="text" [(ngModel)]="storage.s3Bucket" /></div>
+          <div class="form-group" *ngIf="storage.storageProvider === 's3'"><label>Région</label><input type="text" [(ngModel)]="storage.s3Region" /></div>
+          <div class="form-group" *ngIf="storage.storageProvider === 's3'"><label>Access Key</label><input type="text" [(ngModel)]="storage.s3AccessKey" /></div>
+          <div class="form-group" *ngIf="storage.storageProvider === 's3'"><label>Secret Key</label><input type="password" [(ngModel)]="storage.s3SecretKey" /></div>
+          <div class="form-group"><label>Taille max par fichier (MB)</label><input type="number" [(ngModel)]="storage.maxFileSizeMb" min="1" /></div>
+          <div class="form-group full-width"><label>Extensions autorisées</label><input type="text" [(ngModel)]="storage.allowedExtensions" /></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Rétention des données</h3>
+        <div class="form-grid">
+          <div class="form-group"><label>Rétention conversations (jours)</label><input type="number" [(ngModel)]="storage.chatRetentionDays" min="1" /></div>
+          <div class="form-group"><label>Rétention documents (jours)</label><input type="number" [(ngModel)]="storage.documentRetentionDays" min="1" /></div>
+          <div class="form-group"><label>Rétention logs (jours)</label><input type="number" [(ngModel)]="storage.logRetentionDays" min="1" /></div>
+        </div>
+        <div class="toggle-list">
+          <div class="toggle-row"><div><span class="toggle-label">Suppression automatique des données expirées</span><span class="toggle-desc">⚠ Suppression irréversible</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="storage.autoDeleteOldData" /><span class="slider"></span></label></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Sauvegarde automatique</h3>
+        <div class="toggle-list">
+          <div class="toggle-row"><div><span class="toggle-label">Activer les sauvegardes automatiques</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="storage.backupEnabled" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Chiffrer les sauvegardes</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="storage.backupEncrypted" /><span class="slider"></span></label></div>
+        </div>
+        <div class="form-grid" style="margin-top:16px" *ngIf="storage.backupEnabled">
+          <div class="form-group"><label>Fréquence</label><select [(ngModel)]="storage.backupFrequency"><option value="hourly">Toutes les heures</option><option value="daily">Quotidien</option><option value="weekly">Hebdomadaire</option></select></div>
+          <div class="form-group"><label>Heure de sauvegarde</label><input type="time" [(ngModel)]="storage.backupTime" /></div>
+          <div class="form-group"><label>Rétention sauvegardes (jours)</label><input type="number" [(ngModel)]="storage.backupRetentionDays" min="1" /></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Droits RGPD</h3>
+        <div class="toggle-list">
+          <div class="toggle-row"><div><span class="toggle-label">Permettre l'export des données utilisateur</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="storage.gdprDataExportEnabled" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Permettre la suppression du compte</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="storage.gdprDataDeletionEnabled" /><span class="slider"></span></label></div>
+        </div>
+      </div>
+
+      <div class="section-actions">
+        <button class="btn-save" (click)="save('storage')">💾 Sauvegarder</button>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════
+         PERFORMANCE
+    ══════════════════════════════════════════ -->
+    <section *ngIf="activeSection === 'performance'">
+      <div class="section-header">
+        <h2>⚡ Performance</h2>
+        <p>Cache, autoscaling, base de données et optimisations réseau.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Cache Redis</h3>
+        <div class="toggle-list">
+          <div class="toggle-row"><div><span class="toggle-label">Activer le cache Redis</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="performance.redisCacheEnabled" /><span class="slider"></span></label></div>
+        </div>
+        <div class="form-grid" style="margin-top:16px" *ngIf="performance.redisCacheEnabled">
+          <div class="form-group"><label>TTL cache (secondes)</label><input type="number" [(ngModel)]="performance.redisTtlSeconds" min="60" /></div>
+          <div class="form-group"><label>Mémoire max Redis (MB)</label><input type="number" [(ngModel)]="performance.redisMaxMemoryMb" min="64" /></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Autoscaling</h3>
+        <div class="toggle-list">
+          <div class="toggle-row"><div><span class="toggle-label">Autoscaling automatique</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="performance.autoscalingEnabled" /><span class="slider"></span></label></div>
+        </div>
+        <div class="form-grid" style="margin-top:16px">
+          <div class="form-group"><label>Instances minimales</label><input type="number" [(ngModel)]="performance.minInstances" min="1" /></div>
+          <div class="form-group"><label>Instances maximales</label><input type="number" [(ngModel)]="performance.maxInstances" min="1" /></div>
+          <div class="form-group"><label>Seuil scale-up (%)</label><input type="number" [(ngModel)]="performance.scaleUpThresholdPct" min="50" max="99" /></div>
+          <div class="form-group"><label>Seuil scale-down (%)</label><input type="number" [(ngModel)]="performance.scaleDownThresholdPct" min="10" max="80" /></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Base de données</h3>
+        <div class="form-grid">
+          <div class="form-group"><label>Pool connexions min</label><input type="number" [(ngModel)]="performance.dbConnectionPoolMin" min="1" /></div>
+          <div class="form-group"><label>Pool connexions max</label><input type="number" [(ngModel)]="performance.dbConnectionPoolMax" min="5" /></div>
+          <div class="form-group"><label>Timeout requête (s)</label><input type="number" [(ngModel)]="performance.queryTimeoutSec" min="5" /></div>
+          <div class="form-group"><label>Seuil requête lente (ms)</label><input type="number" [(ngModel)]="performance.slowQueryThresholdMs" min="100" /></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Health Checks & Réseau</h3>
+        <div class="form-grid">
+          <div class="form-group"><label>Intervalle health check (s)</label><input type="number" [(ngModel)]="performance.healthCheckIntervalSec" min="5" /></div>
+          <div class="form-group"><label>Timeout health check (s)</label><input type="number" [(ngModel)]="performance.healthCheckTimeoutSec" min="1" /></div>
+          <div class="form-group"><label>Nombre de retries</label><input type="number" [(ngModel)]="performance.healthCheckRetries" min="1" /></div>
+        </div>
+        <div class="toggle-list">
+          <div class="toggle-row"><div><span class="toggle-label">Compression HTTP (gzip/brotli)</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="performance.compressionEnabled" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">CDN activé</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="performance.cdnEnabled" /><span class="slider"></span></label></div>
+        </div>
+        <div class="form-grid" style="margin-top:16px" *ngIf="performance.cdnEnabled">
+          <div class="form-group full-width"><label>URL CDN</label><input type="url" [(ngModel)]="performance.cdnUrl" /></div>
+        </div>
+      </div>
+
+      <div class="section-actions">
+        <button class="btn-save" (click)="save('performance')">💾 Sauvegarder</button>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════
+         APPARENCE
+    ══════════════════════════════════════════ -->
+    <section *ngIf="activeSection === 'appearance'">
+      <div class="section-header">
+        <h2>🎨 Apparence</h2>
+        <p>Thème, couleurs, typographie et personnalisation visuelle.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Thème & Couleurs</h3>
+        <div class="form-grid">
+          <div class="form-group"><label>Thème</label><select [(ngModel)]="appearance.theme"><option value="light">Clair</option><option value="dark">Sombre</option><option value="auto">Automatique (système)</option></select></div>
+          <div class="form-group"><label>Style sidebar</label><select [(ngModel)]="appearance.sidebarStyle"><option value="dark">Sombre</option><option value="light">Clair</option><option value="colored">Coloré</option></select></div>
+          <div class="form-group"><label>Couleur principale</label><input type="color" [(ngModel)]="appearance.primaryColor" /></div>
+          <div class="form-group"><label>Couleur secondaire</label><input type="color" [(ngModel)]="appearance.secondaryColor" /></div>
+          <div class="form-group"><label>Couleur d'accentuation</label><input type="color" [(ngModel)]="appearance.accentColor" /></div>
+          <div class="form-group"><label>Police de caractères</label><select [(ngModel)]="appearance.fontFamily"><option value="Inter">Inter</option><option value="Roboto">Roboto</option><option value="Poppins">Poppins</option><option value="Source Sans Pro">Source Sans Pro</option></select></div>
+          <div class="form-group"><label>Rayon des bordures</label><select [(ngModel)]="appearance.borderRadius"><option value="none">Aucun (carré)</option><option value="small">Petit (4px)</option><option value="medium">Moyen (8px)</option><option value="large">Grand (16px)</option></select></div>
+          <div class="form-group"><label>Arrière-plan de connexion</label><select [(ngModel)]="appearance.loginBg"><option value="gradient">Dégradé</option><option value="image">Image</option><option value="solid">Couleur unie</option></select></div>
+        </div>
+        <div class="color-preview">
+          <div class="preview-swatch" [style.background]="appearance.primaryColor"></div>
+          <div class="preview-swatch" [style.background]="appearance.secondaryColor"></div>
+          <div class="preview-swatch" [style.background]="appearance.accentColor"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Logo & Favicon</h3>
+        <div class="form-grid">
+          <div class="form-group full-width"><label>URL du logo</label><input type="url" [(ngModel)]="appearance.logoUrl" placeholder="https://cdn.dxc.com/logo.png" /></div>
+          <div class="form-group full-width"><label>URL du favicon</label><input type="url" [(ngModel)]="appearance.faviconUrl" placeholder="https://cdn.dxc.com/favicon.ico" /></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">CSS Personnalisé</h3>
+        <div class="form-group">
+          <label>CSS global appliqué à toute la plateforme</label>
+          <textarea rows="8" [(ngModel)]="appearance.customCss" class="code-textarea" placeholder="/* Votre CSS personnalisé ici */"></textarea>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Comportement de l'interface</h3>
+        <div class="toggle-list">
+          <div class="toggle-row"><div><span class="toggle-label">Mode compact</span><span class="toggle-desc">Réduire les espacements pour afficher plus de contenu</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="appearance.compactMode" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Animations activées</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="appearance.animationsEnabled" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Afficher "Powered by DXC Copilot"</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="appearance.showPoweredBy" /><span class="slider"></span></label></div>
+        </div>
+      </div>
+
+      <div class="section-actions">
+        <button class="btn-save" (click)="save('appearance')">💾 Sauvegarder</button>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════
+         AUDIT & CONFORMITÉ
+    ══════════════════════════════════════════ -->
+    <section *ngIf="activeSection === 'audit'">
+      <div class="section-header">
+        <h2>📋 Audit & Conformité</h2>
+        <p>Journalisation des actions, conformité RGPD et certifications.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Journal d'audit</h3>
+        <div class="toggle-list">
+          <div class="toggle-row"><div><span class="toggle-label">Activer le journal d'audit</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="audit.auditLogEnabled" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Journaliser les actions utilisateurs</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="audit.logUserActions" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Journaliser les actions admin</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="audit.logAdminActions" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Journaliser les appels API</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="audit.logApiCalls" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Journaliser les connexions échouées</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="audit.logFailedLogins" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Journaliser les exports de données</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="audit.logDataExports" /><span class="slider"></span></label></div>
+        </div>
+        <div class="form-grid" style="margin-top:16px">
+          <div class="form-group"><label>Rétention du journal (jours)</label><input type="number" [(ngModel)]="audit.auditLogRetentionDays" min="30" /></div>
+          <div class="form-group"><label>Format d'export</label><select [(ngModel)]="audit.exportFormat"><option value="json">JSON</option><option value="csv">CSV</option><option value="pdf">PDF</option></select></div>
+          <div class="form-group"><label>Rapport de conformité</label><select [(ngModel)]="audit.reportFrequency"><option value="weekly">Hebdomadaire</option><option value="monthly">Mensuel</option><option value="quarterly">Trimestriel</option></select></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Certifications & Conformité</h3>
+        <div class="toggle-list">
+          <div class="toggle-row"><div><span class="toggle-label">Conformité RGPD</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="audit.rgpdCompliant" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Accord de traitement des données (DPA)</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="audit.dataProcessingAgreement" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Consentement cookies activé</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="audit.cookieConsentEnabled" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Certifié ISO 27001</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="audit.iso27001" /><span class="slider"></span></label></div>
+          <div class="toggle-row"><div><span class="toggle-label">Certifié SOC 2 Type II</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="audit.soc2" /><span class="slider"></span></label></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card-title">Délégué à la Protection des Données (DPO)</h3>
+        <div class="toggle-list">
+          <div class="toggle-row"><div><span class="toggle-label">Notifier le DPO des incidents</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="audit.notifyDpo" /><span class="slider"></span></label></div>
+        </div>
+        <div class="form-grid" style="margin-top:16px">
+          <div class="form-group"><label>Email DPO</label><input type="email" [(ngModel)]="audit.dpoEmail" /></div>
+          <div class="form-group"><label>URL Politique de confidentialité</label><input type="url" [(ngModel)]="audit.privacyPolicyUrl" /></div>
+          <div class="form-group"><label>URL Conditions d'utilisation</label><input type="url" [(ngModel)]="audit.termsUrl" /></div>
+        </div>
+      </div>
+
+      <div class="section-actions">
+        <button class="btn-save" (click)="save('audit')">💾 Sauvegarder</button>
+      </div>
+    </section>
+
+    <!-- ══════════════════════ KNOWLEDGE BASE ══════════════════════ -->
+    <section *ngIf="activeSection === 'knowledge'" class="settings-section">
+      <div class="section-header">
+        <h2>🧠 Base de Connaissances</h2>
+        <p class="section-desc">Gérez les documents ingérés dans la base vectorielle RAG utilisée par l'IA pour répondre aux incidents.</p>
+      </div>
+
+      <!-- Stats bar -->
+      <div class="kb-stats-bar">
+        <div class="kb-stat">
+          <span class="kb-stat-value">{{ knowledgeStatsLoading ? '…' : knowledgeStats.total_docs }}</span>
+          <span class="kb-stat-label">Documents</span>
+        </div>
+        <div class="kb-stat">
+          <span class="kb-stat-value">{{ knowledgeStatsLoading ? '…' : knowledgeStats.total_chunks }}</span>
+          <span class="kb-stat-label">Chunks ingérés</span>
+        </div>
+        <div class="kb-stat">
+          <span class="kb-stat-value">{{ knowledgeStatsLoading ? '…' : knowledgeStats.total_vectors }}</span>
+          <span class="kb-stat-label">Vecteurs ChromaDB</span>
+        </div>
+        <div class="kb-stat">
+          <span class="kb-stat-value" style="font-size:12px">{{ knowledgeStats.last_updated }}</span>
+          <span class="kb-stat-label">Dernière mise à jour</span>
+        </div>
+        <div class="kb-stat" *ngIf="knowledgeStats.backend">
+          <span class="kb-stat-value" style="font-size:11px;color:#059669">{{ knowledgeStats.backend }}</span>
+          <span class="kb-stat-label">Moteur</span>
+        </div>
+        <button class="kb-refresh-btn" (click)="loadKnowledgeStats(); loadKnowledgeDocs()" title="Actualiser">🔄</button>
+      </div>
+
+      <!-- Upload zone -->
+      <div class="section-card">
+        <h3>Ajouter un document</h3>
+        <div class="kb-drop-zone"
+             [class.dragging]="knowledgeDragOver"
+             [class.uploading]="knowledgeUploading"
+             (dragover)="$event.preventDefault(); knowledgeDragOver = true"
+             (dragleave)="knowledgeDragOver = false"
+             (drop)="onKnowledgeDrop($event)">
+          <div class="kb-drop-icon">{{ knowledgeUploading ? '⚙️' : '📄' }}</div>
+          <p class="kb-drop-text">Glissez-déposez un fichier ici ou</p>
+          <label class="btn-upload" [class.disabled]="knowledgeUploading">
+            <input type="file" accept=".pdf,.txt,.md,.docx,.csv" (change)="onKnowledgeFileSelect($event)" [disabled]="knowledgeUploading" style="display:none" />
+            {{ knowledgeUploading ? 'Ingestion en cours…' : 'Choisir un fichier' }}
+          </label>
+          <p class="kb-drop-hint">Formats acceptés : PDF, TXT, MD, DOCX, CSV — max 50 MB</p>
+        </div>
+
+        <!-- Progress stages -->
+        <div class="kb-upload-progress" *ngIf="knowledgeUploading">
+          <div class="kb-stage-row">
+            <div class="kb-stage-item" *ngFor="let stage of KB_STAGES; let i = index"
+                 [class.active]="knowledgeStageIdx === i"
+                 [class.done]="knowledgeStageIdx > i">
+              <div class="kb-stage-dot">
+                <span *ngIf="knowledgeStageIdx > i">✓</span>
+                <span *ngIf="knowledgeStageIdx <= i">{{ i + 1 }}</span>
+              </div>
+              <span class="kb-stage-label">{{ stage }}</span>
+            </div>
+          </div>
+          <div class="kb-bar-wrap">
+            <div class="kb-bar-fill" [style.width.%]="knowledgeUploadPct"></div>
+          </div>
+          <div class="kb-bar-pct">{{ knowledgeUploadPct }}%</div>
+        </div>
+
+        <!-- Success -->
+        <div class="kb-msg kb-msg-success" *ngIf="knowledgeUploadSuccess">
+          {{ knowledgeUploadSuccess }}
+        </div>
+
+        <!-- Error -->
+        <div class="kb-msg kb-msg-error" *ngIf="knowledgeUploadError">
+          ❌ {{ knowledgeUploadError }}
+        </div>
+      </div>
+
+      <!-- Documents table -->
+      <div class="section-card">
+        <h3>Documents ingérés</h3>
+        <div *ngIf="knowledgeDocs.length === 0" class="kb-empty">Aucun document uploadé. La base intégrée ({{ knowledgeStats.total_chunks }} chunks) est active par défaut.</div>
+        <table *ngIf="knowledgeDocs.length > 0" class="kb-table">
+          <thead>
+            <tr>
+              <th>Nom du fichier</th>
+              <th>Chunks</th>
+              <th>Type</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let doc of knowledgeDocs">
+              <td>{{ doc.filename }}</td>
+              <td>{{ doc.chunks }}</td>
+              <td><span class="kb-badge">{{ doc.topic }}</span></td>
+              <td>{{ doc.uploaded_at | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td><button class="btn-del-doc" (click)="deleteKnowledgeDoc(doc.id, doc.filename)" title="Supprimer">🗑</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Danger zone -->
+      <div class="section-card danger-card">
+        <h3>⚠️ Zone Danger</h3>
+        <p>Réinitialise entièrement la base intégrée (24 incidents TMA) sans effacer vos documents uploadés.</p>
+        <button class="btn-danger" (click)="reseedKnowledge()" [disabled]="knowledgeSeedLoading">
+          {{ knowledgeSeedLoading ? 'Réinitialisation…' : '🔄 Réinitialiser la base intégrée' }}
+        </button>
+      </div>
+    </section>
+
+  </div>
+</div>

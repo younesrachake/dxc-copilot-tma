@@ -1,0 +1,287 @@
+<div class="reports-container">
+
+  <!-- ===== LIST VIEW ===== -->
+  <ng-container *ngIf="!selectedReport">
+    <header class="reports-header">
+      <div class="header-left">
+        <button class="btn btn-outline" (click)="goBack()">← Retour</button>
+        <h1>📊 Rapports</h1>
+      </div>
+    </header>
+
+    <section class="templates-section">
+      <h2>Générer un nouveau rapport</h2>
+      <div class="templates-grid">
+        <div *ngFor="let template of reportTemplates" class="template-card" (click)="generateReport(template)">
+          <div class="template-icon">{{ template.icon }}</div>
+          <div class="template-name">{{ template.name }}</div>
+          <div class="template-description">{{ template.description }}</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="reports-section">
+      <h2>Rapports récents</h2>
+      <div class="reports-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Nom du rapport</th><th>Type</th><th>Date</th><th>Taille</th><th>Statut</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let report of reports">
+              <td>{{ report.name }}</td>
+              <td><span class="badge">{{ report.type }}</span></td>
+              <td>{{ report.date }}</td>
+              <td>{{ report.size }}</td>
+              <td>
+                <span class="status" [class.status-ready]="report.status === 'Disponible'">{{ report.status }}</span>
+              </td>
+              <td class="actions">
+                <button class="btn-icon" (click)="viewReport(report)" [disabled]="report.status !== 'Disponible'" title="Voir">👁️</button>
+                <button class="btn-icon" (click)="downloadReport(report)" [disabled]="report.status !== 'Disponible'" title="Télécharger">📥</button>
+                <button class="btn-icon" (click)="deleteReport(report)" title="Supprimer">🗑️</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </ng-container>
+
+  <!-- ===== RAPPORT MENSUEL ===== -->
+  <ng-container *ngIf="selectedReport === 'mensuel'">
+    <header class="reports-header">
+      <div class="header-left">
+        <button class="btn btn-outline" (click)="closeReport()">← Retour</button>
+        <h1>📊 Rapport Mensuel — {{ mensuelData.period }}</h1>
+      </div>
+      <button class="btn btn-primary" (click)="exportReport()" [disabled]="isGenerating">
+        <span *ngIf="!isGenerating">📥 Exporter</span>
+        <span *ngIf="isGenerating">⏳ {{ generationProgress }}%</span>
+      </button>
+    </header>
+
+    <div class="kpi-grid">
+      <div *ngFor="let kpi of mensuelData.kpis" class="kpi-card">
+        <div class="kpi-label">{{ kpi.label }}</div>
+        <div class="kpi-value">{{ kpi.value }}</div>
+        <div class="kpi-change" [ngClass]="kpi.up ? 'positive' : 'negative'">{{ kpi.change }}</div>
+      </div>
+    </div>
+
+    <div class="report-grid-2">
+      <section class="report-section">
+        <h2>Sessions quotidiennes</h2>
+        <div class="bar-chart">
+          <div *ngFor="let d of mensuelData.dailyData" class="bar-group">
+            <div class="bar" [style.height.%]="(d.sessions / getMaxSessions()) * 100" title="{{ d.sessions }} sessions"></div>
+            <div class="bar-label">{{ d.day }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="report-section">
+        <h2>Fonctionnalités les plus utilisées</h2>
+        <div class="feature-bars">
+          <div *ngFor="let f of mensuelData.topFeatures" class="feature-row">
+            <div class="feature-name">{{ f.name }}</div>
+            <div class="feature-bar-wrap">
+              <div class="feature-bar" [style.width.%]="f.pct"></div>
+            </div>
+            <div class="feature-pct">{{ f.pct }}%</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </ng-container>
+
+  <!-- ===== RAPPORT TRIMESTRIEL ===== -->
+  <ng-container *ngIf="selectedReport === 'trimestriel'">
+    <header class="reports-header">
+      <div class="header-left">
+        <button class="btn btn-outline" (click)="closeReport()">← Retour</button>
+        <h1>📈 Rapport Trimestriel — {{ trimestrielData.period }}</h1>
+      </div>
+      <button class="btn btn-primary" (click)="exportReport()" [disabled]="isGenerating">
+        <span *ngIf="!isGenerating">📥 Exporter</span>
+        <span *ngIf="isGenerating">⏳ {{ generationProgress }}%</span>
+      </button>
+    </header>
+
+    <div class="kpi-grid">
+      <div *ngFor="let kpi of trimestrielData.kpis" class="kpi-card">
+        <div class="kpi-label">{{ kpi.label }}</div>
+        <div class="kpi-value">{{ kpi.value }}</div>
+        <div class="kpi-change" [ngClass]="kpi.up ? 'positive' : 'negative'">{{ kpi.change }}</div>
+      </div>
+    </div>
+
+    <div class="report-grid-2">
+      <section class="report-section">
+        <h2>Évolution mensuelle</h2>
+        <div class="month-table">
+          <table>
+            <thead>
+              <tr><th>Mois</th><th>Sessions</th><th>Utilisateurs</th><th>Messages</th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let m of trimestrielData.months">
+                <td><strong>{{ m.name }}</strong></td>
+                <td>{{ m.sessions | number }}</td>
+                <td>{{ m.users }}</td>
+                <td>{{ m.messages | number }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="bar-chart" style="margin-top:16px">
+          <div *ngFor="let m of trimestrielData.months" class="bar-group">
+            <div class="bar bar-alt" [style.height.%]="(m.sessions / getMaxMonthSessions()) * 100" title="{{ m.sessions }}"></div>
+            <div class="bar-label">{{ m.name.slice(0,3) }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="report-section">
+        <h2>Comparaison Q4 2025 vs Q1 2026</h2>
+        <div class="comparison-list">
+          <div *ngFor="let c of trimestrielData.comparison" class="comparison-row">
+            <div class="comp-label">{{ c.label }}</div>
+            <div class="comp-bars">
+              <div class="comp-bar-row">
+                <span class="comp-q">Q4</span>
+                <div class="comp-bar-wrap"><div class="comp-bar q0" [style.width.%]="70"></div></div>
+                <span class="comp-val">{{ c.q0 | number }}</span>
+              </div>
+              <div class="comp-bar-row">
+                <span class="comp-q">Q1</span>
+                <div class="comp-bar-wrap"><div class="comp-bar q1" [style.width.%]="85"></div></div>
+                <span class="comp-val">{{ c.q1 | number }}</span>
+              </div>
+            </div>
+            <div class="comp-pct positive">+{{ c.pct }}%</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </ng-container>
+
+  <!-- ===== RAPPORT PERFORMANCE ===== -->
+  <ng-container *ngIf="selectedReport === 'performance'">
+    <header class="reports-header">
+      <div class="header-left">
+        <button class="btn btn-outline" (click)="closeReport()">← Retour</button>
+        <h1>⚡ Rapport de Performance — {{ performanceData.period }}</h1>
+      </div>
+      <button class="btn btn-primary" (click)="exportReport()" [disabled]="isGenerating">
+        <span *ngIf="!isGenerating">📥 Exporter</span>
+        <span *ngIf="isGenerating">⏳ {{ generationProgress }}%</span>
+      </button>
+    </header>
+
+    <div class="kpi-grid">
+      <div *ngFor="let kpi of performanceData.kpis" class="kpi-card">
+        <div class="kpi-label">{{ kpi.label }}</div>
+        <div class="kpi-value">{{ kpi.value }}</div>
+        <div class="kpi-change" [ngClass]="kpi.up ? 'positive' : 'negative'">{{ kpi.change }}</div>
+      </div>
+    </div>
+
+    <div class="report-grid-2">
+      <section class="report-section">
+        <h2>État des services</h2>
+        <div class="service-table">
+          <table>
+            <thead>
+              <tr><th>Service</th><th>Uptime</th><th>Latence</th><th>Statut</th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let s of performanceData.services">
+                <td><strong>{{ s.name }}</strong></td>
+                <td>{{ s.uptime }}%</td>
+                <td>{{ s.latency }} ms</td>
+                <td>
+                  <span class="status-dot" [ngClass]="s.status === 'Opérationnel' ? 'dot-ok' : 'dot-warn'"></span>
+                  {{ s.status }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="report-section">
+        <h2>Distribution des latences</h2>
+        <div class="feature-bars">
+          <div *ngFor="let b of performanceData.latencyBuckets" class="feature-row">
+            <div class="feature-name">{{ b.range }}</div>
+            <div class="feature-bar-wrap">
+              <div class="feature-bar" [style.width.%]="b.pct" [ngClass]="b.pct > 20 ? 'bar-blue' : 'bar-green'"></div>
+            </div>
+            <div class="feature-pct">{{ b.pct }}%</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </ng-container>
+
+  <!-- ===== RAPPORT UTILISATEURS ===== -->
+  <ng-container *ngIf="selectedReport === 'utilisateurs'">
+    <header class="reports-header">
+      <div class="header-left">
+        <button class="btn btn-outline" (click)="closeReport()">← Retour</button>
+        <h1>👥 Rapport Utilisateurs — {{ utilisateursData.period }}</h1>
+      </div>
+      <button class="btn btn-primary" (click)="exportReport()" [disabled]="isGenerating">
+        <span *ngIf="!isGenerating">📥 Exporter</span>
+        <span *ngIf="isGenerating">⏳ {{ generationProgress }}%</span>
+      </button>
+    </header>
+
+    <div class="kpi-grid">
+      <div *ngFor="let kpi of utilisateursData.kpis" class="kpi-card">
+        <div class="kpi-label">{{ kpi.label }}</div>
+        <div class="kpi-value">{{ kpi.value }}</div>
+        <div class="kpi-change" [ngClass]="kpi.up ? 'positive' : 'negative'">{{ kpi.change }}</div>
+      </div>
+    </div>
+
+    <div class="report-grid-2">
+      <section class="report-section">
+        <h2>Top 5 utilisateurs</h2>
+        <div class="service-table">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Nom</th><th>Département</th><th>Sessions</th><th>Messages</th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let u of utilisateursData.topUsers; let i = index">
+                <td><strong>#{{ i + 1 }}</strong></td>
+                <td>{{ u.name }}</td>
+                <td><span class="badge">{{ u.dept }}</span></td>
+                <td>{{ u.sessions }}</td>
+                <td>{{ u.messages | number }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="report-section">
+        <h2>Répartition par département</h2>
+        <div class="feature-bars">
+          <div *ngFor="let d of utilisateursData.byDept" class="feature-row">
+            <div class="feature-name">{{ d.dept }}</div>
+            <div class="feature-bar-wrap">
+              <div class="feature-bar" [style.width.%]="d.pct"></div>
+            </div>
+            <div class="feature-pct">{{ d.users }} ({{ d.pct }}%)</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </ng-container>
+
+</div>
