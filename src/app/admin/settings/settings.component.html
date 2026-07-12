@@ -969,6 +969,50 @@
         <p class="section-desc">Gérez les documents ingérés dans la base vectorielle RAG utilisée par l'IA pour répondre aux incidents.</p>
       </div>
 
+      <!-- Activation + Agent de synchronisation -->
+      <div class="section-card">
+        <h3>🤖 Agent de synchronisation</h3>
+        <div class="toggle-list">
+          <div class="toggle-row">
+            <div>
+              <span class="toggle-label">Base de connaissances activée</span>
+              <span class="toggle-desc">Utiliser la base de connaissances pour enrichir les réponses du chat (RAG)</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" [(ngModel)]="knowledge.enabled" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <button class="btn-upload" (click)="save('knowledge')">Sauvegarder</button>
+
+        <div class="kb-stats-bar" *ngIf="agentStatus" style="margin-top:16px">
+          <div class="kb-stat">
+            <span class="kb-stat-value" style="font-size:12px">{{ agentDate(agentStatus.last_run) }}</span>
+            <span class="kb-stat-label">Dernière exécution</span>
+          </div>
+          <div class="kb-stat">
+            <span class="kb-stat-value" style="font-size:12px">{{ agentDate(agentStatus.next_run) }}</span>
+            <span class="kb-stat-label">Prochaine exécution</span>
+          </div>
+          <div class="kb-stat">
+            <span class="kb-stat-value" style="font-size:12px">{{ agentFrequencyLabel(agentStatus.frequency) }}</span>
+            <span class="kb-stat-label">Fréquence</span>
+          </div>
+          <div class="kb-stat" *ngIf="agentStatus.last_result">
+            <span class="kb-stat-value">{{ agentStatus.last_result.guides_ingested }} / {{ agentStatus.last_result.docs_mirrored }}</span>
+            <span class="kb-stat-label">Guides ingérés / Docs synchronisés</span>
+          </div>
+        </div>
+        <p class="kb-drop-hint" style="margin-top:8px">
+          L'agent active la base de connaissances, ingère les guides publiés dans la base vectorielle et fait apparaître
+          les documents de la base dans la section Documents. La fréquence se règle dans les paramètres utilisateur.
+        </p>
+        <button class="btn-upload" (click)="runAgent()" [disabled]="agentRunLoading">
+          {{ agentRunLoading ? 'Exécution en cours…' : '▶️ Exécuter maintenant' }}
+        </button>
+      </div>
+
       <!-- Stats bar -->
       <div class="kb-stats-bar">
         <div class="kb-stat">

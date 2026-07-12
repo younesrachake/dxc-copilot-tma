@@ -1,4 +1,6 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://api.dxc-copilot.com'
+  // Same-origin: nginx reverse-proxies /api/* to the backend container,
+  // so cookies are first-party and no CORS configuration is needed.
+  apiUrl: ''
 };

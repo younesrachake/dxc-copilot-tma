@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, DateTime, Text, JSON, ForeignKey, Boolean, Index
+from sqlalchemy import Column, String, Integer, DateTime, Text, JSON, ForeignKey, Boolean
 from sqlalchemy.orm import relationship, declarative_base
 
 _now = lambda: datetime.now(timezone.utc)

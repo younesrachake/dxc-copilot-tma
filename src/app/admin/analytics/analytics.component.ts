@@ -1,12 +1,12 @@
 import { Component, OnInit } from '@angular/core';
-import { NgFor, NgIf, DecimalPipe, PercentPipe } from '@angular/common';
+import { NgFor, NgIf, DecimalPipe, PercentPipe, SlicePipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { ApiService, RagAnalyticsResponse } from '../../services/api.service';
 
 @Component({
   selector: 'app-analytics',
   standalone: true,
-  imports: [NgFor, NgIf, DecimalPipe, PercentPipe],
+  imports: [NgFor, NgIf, DecimalPipe, PercentPipe, SlicePipe],
   templateUrl: './analytics.component.html',
   styleUrl: './analytics.component.scss'
 })
@@ -20,10 +20,61 @@ export class AnalyticsComponent implements OnInit {
   ragStats: RagAnalyticsResponse | null = null;
   ragLoading = false;
 
+  // AI Insights (embeddings-driven analysis)
+  gaps: any = null;
+  gapsLoading = false;
+  clusters: any = null;
+  clustersLoading = false;
+  thresholds: any = null;
+  thresholdsLoading = false;
+  applyingThresholds = false;
+  insightMessage = '';
+
   constructor(private router: Router, private api: ApiService) {}
 
   ngOnInit(): void {
     this.refreshData();
+    this.loadInsights(false);
+  }
+
+  loadInsights(refresh: boolean): void {
+    this.gapsLoading = true;
+    this.clustersLoading = true;
+    this.thresholdsLoading = true;
+    this.api.getKnowledgeGaps(refresh).subscribe({
+      next: (r) => { this.gaps = r; this.gapsLoading = false; },
+      error: () => { this.gapsLoading = false; }
+    });
+    this.api.getIncidentClusters(30, refresh).subscribe({
+      next: (r) => { this.clusters = r; this.clustersLoading = false; },
+      error: () => { this.clustersLoading = false; }
+    });
+    this.api.getRoutingThresholds(refresh).subscribe({
+      next: (r) => { this.thresholds = r; this.thresholdsLoading = false; },
+      error: () => { this.thresholdsLoading = false; }
+    });
+  }
+
+  applyRecommendedThresholds(): void {
+    const rec = this.thresholds?.recommendation;
+    if (!rec || rec.status !== 'ok' || this.applyingThresholds) return;
+    this.applyingThresholds = true;
+    this.api.applyRoutingThresholds({
+      t_low: rec.recommended_t_low,
+      t_high: rec.recommended_t_high
+    }).subscribe({
+      next: (r) => {
+        this.applyingThresholds = false;
+        this.insightMessage = '✅ Seuils appliqués — le routage RAG utilise les nouvelles valeurs.';
+        if (this.thresholds) this.thresholds.current = r.settings;
+        setTimeout(() => this.insightMessage = '', 4000);
+      },
+      error: (e) => {
+        this.applyingThresholds = false;
+        this.insightMessage = `⚠️ ${e.message}`;
+        setTimeout(() => this.insightMessage = '', 4000);
+      }
+    });
   }
 
   getMaxRequests(): number {

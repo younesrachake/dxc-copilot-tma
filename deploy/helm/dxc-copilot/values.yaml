@@ -1,0 +1,76 @@
+# Default values — override per environment (see values-prod.yaml).
+
+image:
+  registry: ghcr.io
+  frontend:
+    repository: dxc/dxc-copilot
+    tag: latest
+  backend:
+    repository: dxc/dxc-copilot-backend
+    tag: latest
+  pullPolicy: IfNotPresent
+  pullSecrets: []          # e.g. [ghcr-pull-secret]
+
+frontend:
+  replicas: 2
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 250m, memory: 128Mi }
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+backend:
+  # NOTE: replicas > 1 requires ReadWriteMany storage for ChromaDB, or an
+  # external vector store. The in-memory semantic cache is per-replica.
+  replicas: 1
+  resources:
+    requests: { cpu: 500m, memory: 2Gi }
+    limits: { cpu: "2", memory: 4Gi }
+  env:
+    APP_ENV: production
+    LOG_JSON: "1"
+  # Name of an existing Secret holding: DATABASE_URL, JWT_SECRET, REDIS_URL,
+  # INITIAL_ADMIN_PASSWORD, GROQ_API_KEY, OPENAI_API_KEY (optional), SENTRY_DSN (optional)
+  existingSecret: dxc-copilot-secrets
+  persistence:
+    chroma:
+      enabled: true
+      size: 5Gi
+      storageClass: ""     # cluster default
+    logs:
+      enabled: false       # stdout logging is preferred in k8s
+    backups:
+      enabled: true
+      size: 10Gi
+      storageClass: ""
+
+ingress:
+  enabled: true
+  className: nginx
+  host: copilot.dxc.com
+  tls:
+    enabled: true
+    secretName: dxc-copilot-tls
+  annotations:
+    # SSE streaming (/api/chat/stream) needs unbuffered proxying + long timeouts
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+
+# External stateful services — provision separately (managed DB/Redis or operators)
+externalDatabase:
+  # postgresql+asyncpg://user:pass@host:5432/db — supplied via the Secret's DATABASE_URL
+  required: true
+externalRedis:
+  required: true
+
+metrics:
+  serviceMonitor:
+    enabled: false         # set true when kube-prometheus-stack is installed
+    interval: 30s
+
+networkPolicy:
+  enabled: true

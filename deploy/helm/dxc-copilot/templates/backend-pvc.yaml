@@ -1,0 +1,33 @@
+{{- if .Values.backend.persistence.chroma.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "dxc-copilot.backend.fullname" . }}-chroma
+  labels:
+    {{- include "dxc-copilot.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- with .Values.backend.persistence.chroma.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.backend.persistence.chroma.size }}
+{{- end }}
+{{- if .Values.backend.persistence.backups.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "dxc-copilot.backend.fullname" . }}-backups
+  labels:
+    {{- include "dxc-copilot.labels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- with .Values.backend.persistence.backups.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.backend.persistence.backups.size }}
+{{- end }}

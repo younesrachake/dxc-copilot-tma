@@ -498,7 +498,7 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
 
     // ── Dynamic loader text (step 1 → step 2) ─────────────────
     this.loadingText = 'Analyse des pièces jointes en cours...';
-    setTimeout(() => { this.loadingText = 'Recherche dans la base de connaissances...'; }, 2000);
+    setTimeout(() => { if (this.isLoading && !this.loadingText.startsWith('Recherche')) this.loadingText = 'Recherche dans la base de connaissances...'; }, 2000);
 
     // ── ERR3 — 45s timeout ─────────────────────────────────────
     this.timeoutHandle = setTimeout(() => {
@@ -514,8 +514,15 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
       this.shouldScroll = true;
     }, 45000);
 
-    // ── Real HTTP call to backend API ────────────────────────
     const prevSessionId = this.currentSessionId;
+
+    // ── Streaming path (SSE) — text-only messages ─────────────
+    if (!this.pendingFile) {
+      this.sendViaStream(text, prevSessionId);
+      return;
+    }
+
+    // ── Real HTTP call to backend API (file uploads) ──────────
     this.api.sendMessage(text || '', this.currentSessionId, this.pendingFile ?? undefined)
       .subscribe({
         next: (res) => {
@@ -540,6 +547,21 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
           }
           // Attach KB sources for attribution display
           if (res.sources?.length) bot.sources = res.sources;
+          if (res.citations?.length) bot.citations = res.citations;
+          if (res.grounded !== undefined && res.grounded !== null) bot.grounded = res.grounded;
+          if (res.cached) bot.cached = true;
+          // Backend-detected Jira intent → attach pre-filled draft (opens the Jira modal)
+          if (res.jira_ticket) {
+            bot.jiraTicket = {
+              summary:     res.jira_ticket.summary || '',
+              description: res.jira_ticket.description || '',
+              type:        res.jira_ticket.type || 'Incident',
+              priority:    res.jira_ticket.priority || 'Haute',
+              project:     res.jira_ticket.project || 'TMA',
+              assignee:    res.jira_ticket.assignee || '',
+              status:      'draft'
+            };
+          }
           this.messages.push(bot);
           this.isLoading = false;
           this.loadingText = '';
@@ -563,6 +585,106 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
           this.pendingFile = null;
         }
       });
+  }
+
+  // ── Real token streaming over SSE ────────────────────────────────
+  private sendViaStream(text: string, prevSessionId?: string): void {
+    const bot: ChatMessage = {
+      id: this.messages.length + 1,
+      text: '',
+      sender: 'bot',
+      timestamp: new Date(),
+      feedback: null
+    };
+    let botPushed = false;
+
+    const clearTimer = () => {
+      if (this.timeoutHandle) { clearTimeout(this.timeoutHandle); this.timeoutHandle = null; }
+    };
+
+    this.api.streamMessage(text, this.currentSessionId, {
+      onStatus: (s) => {
+        this.loadingText = s;
+        this.cdr.detectChanges();
+      },
+      onToken: (t) => {
+        clearTimer();
+        if (!botPushed) {
+          botPushed = true;
+          this.isLoading = false;
+          this.loadingText = '';
+          this.messages.push(bot);
+          this.streamingIds.add(bot.id);
+        }
+        bot.text += t;
+        this.displayedTexts.set(bot.id, bot.text);
+        this.shouldScroll = true;
+        this.cdr.detectChanges();
+      },
+      onMeta: (meta) => {
+        if (meta.session_id) {
+          this.currentSessionId = meta.session_id;
+          if (!prevSessionId) {
+            this.chatStore.emitSessionCreated(meta.session_id, text.substring(0, 50) || 'Nouveau chat');
+          }
+        }
+        if (meta.guide_card) {
+          bot.guideCard = meta.guide_card;
+          this.persistentGuideCard = meta.guide_card;
+        }
+        if (meta.sources?.length) bot.sources = meta.sources;
+        if (meta.citations?.length) bot.citations = meta.citations;
+        if (meta.grounded !== undefined && meta.grounded !== null) bot.grounded = meta.grounded;
+        if (meta.cached) bot.cached = true;
+        if (meta.jira_ticket) {
+          bot.jiraTicket = {
+            summary:     meta.jira_ticket.summary || '',
+            description: meta.jira_ticket.description || '',
+            type:        meta.jira_ticket.type || 'Incident',
+            priority:    meta.jira_ticket.priority || 'Haute',
+            project:     meta.jira_ticket.project || 'TMA',
+            assignee:    meta.jira_ticket.assignee || '',
+            status:      'draft'
+          };
+        }
+        this.cdr.detectChanges();
+      },
+      onDone: () => {
+        clearTimer();
+        this.streamingIds.delete(bot.id);
+        if (botPushed) {
+          const { cleanText, artifact } = this.parseCodeBlocks(bot.text);
+          if (artifact) {
+            bot.artifact = artifact;
+            bot.text = cleanText || bot.text;
+            this.openArtifact(artifact);
+          }
+          this.displayedTexts.set(bot.id, bot.text);
+        }
+        this.isLoading = false;
+        this.loadingText = '';
+        this.shouldScroll = true;
+        this.cdr.detectChanges();
+      },
+      onError: (message) => {
+        clearTimer();
+        this.streamingIds.delete(bot.id);
+        if (!botPushed) {
+          this.messages.push({
+            id: this.messages.length + 1,
+            text: `⚠️ ${message}`,
+            sender: 'bot', timestamp: new Date(), feedback: null
+          });
+        } else {
+          bot.text += `\n\n⚠️ ${message}`;
+          this.displayedTexts.set(bot.id, bot.text);
+        }
+        this.isLoading = false;
+        this.loadingText = '';
+        this.shouldScroll = true;
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   private generateBotResponse(userText: string, id: number): ChatMessage {

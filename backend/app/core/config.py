@@ -79,4 +79,4 @@ def validate_config() -> None:
     if errors:
         for e in errors:
             logger.error("❌ CONFIG ERROR: %s", e)
-        sys.exit(f"Configuration error(s) detected. Fix them before starting the server.\n" + "\n".join(errors))
+        sys.exit("Configuration error(s) detected. Fix them before starting the server.\n" + "\n".join(errors))

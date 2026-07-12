@@ -116,9 +116,9 @@
         
         <div class="input-group">
           <label for="fontSize">Taille de police</label>
-          <select 
-            id="fontSize" 
-            [(ngModel)]="preferences.fontSize" 
+          <select
+            id="fontSize"
+            [(ngModel)]="preferences.fontSize"
             name="fontSize"
           >
             <option value="small">Petit</option>
@@ -126,7 +126,23 @@
             <option value="large">Grand</option>
           </select>
         </div>
-        
+
+        <div class="input-group">
+          <label for="syncFrequency">Fréquence de mise à jour de la base de connaissances</label>
+          <select
+            id="syncFrequency"
+            [(ngModel)]="preferences.syncFrequency"
+            name="syncFrequency"
+          >
+            <option value="daily">Quotidienne</option>
+            <option value="weekly">Hebdomadaire</option>
+            <option value="monthly">Mensuelle</option>
+          </select>
+          <small class="hint" *ngIf="agentLastRun">
+            Dernière synchronisation : {{ agentLastRun }}<span *ngIf="agentNextRun"> — prochaine : {{ agentNextRun }}</span>
+          </small>
+        </div>
+
         <button type="submit" class="btn btn-primary">Sauvegarder</button>
       </form>
     </div>

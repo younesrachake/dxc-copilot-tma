@@ -3,9 +3,15 @@ name: DXC Copilot — CI/CD Pipeline
 on:
   push:
     branches: [main, develop]
+    tags: ['v*.*.*']
   pull_request:
     branches: [main]
   workflow_dispatch:
+
+# Cancel superseded runs on the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   REGISTRY: ghcr.io
@@ -13,18 +19,15 @@ env:
 
 jobs:
   # ─────────────────────────────────────────────────────────────
-  # JOB 1 — Lint & Build
+  # JOB 1 — Frontend: build + unit tests (blocking PR gate)
   # ─────────────────────────────────────────────────────────────
-  build:
-    name: 🔨 Build & Lint
+  frontend:
+    name: 🔨 Frontend — Build & Unit Tests
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -32,11 +35,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npx ng lint --max-warnings 0 || true
-
-      - name: Build production bundle
+      - name: Build production bundle (strict TS compile is the lint gate)
         run: npm run build -- --configuration production
+
+      - name: Install Chrome (for Karma headless)
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Unit tests (blocking)
+        run: npm run test:ci
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -45,55 +51,135 @@ jobs:
           path: dist/
           retention-days: 7
 
-  # ─────────────────────────────────────────────────────────────
-  # JOB 2 — Unit Tests
-  # ─────────────────────────────────────────────────────────────
-  test:
-    name: 🧪 Unit Tests
-    runs-on: ubuntu-latest
-    needs: build
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Chrome (for Karma headless)
-        uses: browser-actions/setup-chrome@v1
-
-      - name: Run tests (headless)
-        run: npm test -- --watch=false --browsers=ChromeHeadless --code-coverage
-
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
-          name: coverage
+          name: frontend-coverage
           path: coverage/
           retention-days: 7
 
   # ─────────────────────────────────────────────────────────────
-  # JOB 3 — Docker Build & Push (main branch only)
+  # JOB 2 — Backend: ruff + pytest (blocking PR gate)
+  # ─────────────────────────────────────────────────────────────
+  backend:
+    name: 🐍 Backend — Lint & Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Ruff lint
+        run: ruff check app tests
+
+      - name: Pytest (hermetic — no models, no API keys)
+        run: pytest tests -v --cov=app --cov-report=xml --cov-report=term
+        env:
+          DISABLE_LOCAL_ML: '1'
+          DISABLE_CHROMA: '1'
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage.xml
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────
+  # JOB 3 — E2E: Playwright against the real stack (blocking PR gate)
+  # ─────────────────────────────────────────────────────────────
+  e2e:
+    name: 🎭 E2E — Playwright
+    runs-on: ubuntu-latest
+    needs: [frontend, backend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          pip install -r backend/requirements.txt
+          npx playwright install --with-deps chromium
+
+      - name: Run E2E suite (backend in LLM-simulation mode)
+        run: npx playwright test
+        env:
+          CI: '1'
+          E2E_ADMIN_PASSWORD: E2eAdminPass1234!
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────
+  # JOB 4 — Helm chart validation
+  # ─────────────────────────────────────────────────────────────
+  helm:
+    name: ⎈ Helm — Lint & Render
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.15.4
+
+      - name: Helm lint
+        run: helm lint deploy/helm/dxc-copilot
+
+      - name: Helm template render (default + prod values)
+        run: |
+          helm template ci deploy/helm/dxc-copilot > /dev/null
+          helm template ci deploy/helm/dxc-copilot \
+            -f deploy/helm/dxc-copilot/values-prod.yaml \
+            --set image.backend.tag=ci --set image.frontend.tag=ci > /dev/null
+
+  # ─────────────────────────────────────────────────────────────
+  # JOB 5 — Docker Build & Push (main / tags only)
   # ─────────────────────────────────────────────────────────────
   docker:
     name: 🐳 Docker Build & Push
     runs-on: ubuntu-latest
-    needs: [build, test]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [frontend, backend, e2e, helm]
+    if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request'
     permissions:
       contents: read
       packages: write
-
+    strategy:
+      matrix:
+        include:
+          - name: frontend
+            context: .
+            suffix: ''
+          - name: backend
+            context: ./backend
+            suffix: '-backend'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -106,7 +192,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.suffix }}
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
@@ -117,19 +203,26 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push Docker image
+      - name: Build and push ${{ matrix.name }} image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ${{ matrix.context }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+          platforms: linux/amd64
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.suffix }}:latest
+          format: spdx-json
+          artifact-name: sbom-${{ matrix.name }}.spdx.json
 
   # ─────────────────────────────────────────────────────────────
-  # JOB 4 — Deploy to Staging
+  # JOB 6 — Deploy to Staging
   # ─────────────────────────────────────────────────────────────
   deploy-staging:
     name: 🚀 Deploy — Staging
@@ -139,7 +232,6 @@ jobs:
       name: staging
       url: https://staging.copilot.dxc.com
     if: github.ref == 'refs/heads/main'
-
     steps:
       - name: Deploy to staging server
         uses: appleboy/ssh-action@v1
@@ -150,19 +242,17 @@ jobs:
           script: |
             cd /opt/dxc-copilot
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            docker-compose pull app
-            docker-compose up -d --no-deps --force-recreate app
+            git pull --ff-only || true
+            REGISTRY=ghcr.io IMAGE_NAME=${{ env.IMAGE_NAME }} sh scripts/deploy.sh latest
             docker image prune -f
-            echo "✅ Staging deployment complete — $(date)"
 
-      - name: Health check
+      - name: External health check
         run: |
           sleep 15
           curl -f https://staging.copilot.dxc.com/health || exit 1
 
   # ─────────────────────────────────────────────────────────────
-  # JOB 5 — Deploy to Production (manual approval required)
+  # JOB 7 — Deploy to Production (manual approval via environment)
   # ─────────────────────────────────────────────────────────────
   deploy-prod:
     name: 🏭 Deploy — Production
@@ -171,7 +261,6 @@ jobs:
     environment:
       name: production
       url: https://copilot.dxc.com
-
     steps:
       - name: Deploy to production server
         uses: appleboy/ssh-action@v1
@@ -182,13 +271,11 @@ jobs:
           script: |
             cd /opt/dxc-copilot
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            docker-compose pull app
-            docker-compose up -d --no-deps --force-recreate app
+            git pull --ff-only || true
+            REGISTRY=ghcr.io IMAGE_NAME=${{ env.IMAGE_NAME }} sh scripts/deploy.sh latest
             docker image prune -f
-            echo "✅ Production deployment complete — $(date)"
 
-      - name: Production health check
+      - name: External health check
         run: |
           sleep 20
           curl -f https://copilot.dxc.com/health || exit 1

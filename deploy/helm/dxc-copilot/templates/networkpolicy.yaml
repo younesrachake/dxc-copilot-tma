@@ -1,0 +1,33 @@
+{{- if .Values.networkPolicy.enabled }}
+# Backend accepts traffic only from the ingress controller and the frontend;
+# egress stays open (LLM APIs, database, Redis are external to the mesh).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "dxc-copilot.backend.fullname" . }}
+  labels:
+    {{- include "dxc-copilot.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "dxc-copilot.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: backend
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ include "dxc-copilot.name" . }}
+              app.kubernetes.io/instance: {{ .Release.Name }}
+        # Prometheus scraping (kube-prometheus-stack default namespace label)
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8000
+{{- end }}

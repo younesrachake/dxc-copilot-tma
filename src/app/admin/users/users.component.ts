@@ -104,6 +104,10 @@ export class UsersComponent implements OnInit {
       this.addError = 'Adresse email invalide.';
       return;
     }
+    if (password!.length < 12) {
+      this.addError = `Le mot de passe doit contenir au moins 12 caractères (${password!.length}/12).`;
+      return;
+    }
     if (password !== confirmPassword) {
       this.addError = 'Les mots de passe ne correspondent pas.';
       return;

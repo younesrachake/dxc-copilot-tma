@@ -15,7 +15,7 @@ try:
     _PSUTIL = True
 except ImportError:
     _PSUTIL = False
-from datetime import datetime, date, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends, Request, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,9 +29,10 @@ from app.core.audit import audit
 from app.models.db import User, Session, Message, Incident, Feedback, IncidentGuide, MaintenanceTask, PlatformSetting, AuditLog
 from app.models.schemas import (
     AdminUserResponse, CreateUserRequest, UpdateUserRequest,
-    MaintenanceActionResponse, DashboardStatsResponse,
-    UpdateProfileRequest, ChangePasswordRequest, UserResponse
+    MaintenanceActionResponse, UpdateProfileRequest, ChangePasswordRequest, UserResponse
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -367,11 +368,21 @@ async def update_config(data: dict, request: Request, db: AsyncSession = Depends
 
 @router.post("/restart/{service_id}")
 async def restart_service(service_id: str, request: Request, db: AsyncSession = Depends(get_db)):
-    await require_admin(request, db)
+    """Service restarts are the orchestrator's job — this endpoint no longer
+    pretends to restart anything (it previously returned a fake success)."""
+    admin_user = await require_admin(request, db)
     allowed = ["api-gw", "auth", "chat", "docs", "analytics"]
     if service_id not in allowed:
         raise HTTPException(status_code=400, detail=f"Service inconnu: {service_id}")
-    return {"status": "success", "message": f"Service {service_id} redémarré", "service_id": service_id}
+    await audit(db, int(str(admin_user.id)), "restart_requested", resource=f"service:{service_id}")
+    raise HTTPException(
+        status_code=501,
+        detail=(
+            f"Le redémarrage de '{service_id}' doit être effectué par l'orchestrateur : "
+            "`docker compose restart backend` ou `kubectl rollout restart deploy/dxc-copilot-backend`. "
+            "La demande a été consignée dans le journal d'audit."
+        ),
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -534,31 +545,54 @@ async def delete_user(user_id: int, request: Request, db: AsyncSession = Depends
 
 @router.post("/maintenance/backup", response_model=MaintenanceActionResponse)
 async def run_backup(request: Request, db: AsyncSession = Depends(get_db)):
-    await require_admin(request, db)
+    admin_user = await require_admin(request, db)
+    from app.services.maintenance_service import run_backup as do_backup
+    try:
+        result = await do_backup()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Échec de la sauvegarde : {e}")
+    await audit(db, int(str(admin_user.id)), "database_backup", resource="maintenance",
+                detail=json.dumps(result))
+    size_mb = round(result["size_bytes"] / (1024 * 1024), 2)
     return MaintenanceActionResponse(
         status="success",
         message="Sauvegarde de la base de données complétée avec succès.",
-        details={"timestamp": datetime.now(timezone.utc).isoformat(), "size": "42 MB"}
+        details={"timestamp": datetime.now(timezone.utc).isoformat(),
+                 "path": result["path"], "size": f"{size_mb} MB"}
     )
 
 
 @router.post("/maintenance/clean-cache", response_model=MaintenanceActionResponse)
 async def clean_cache(request: Request, db: AsyncSession = Depends(get_db)):
-    await require_admin(request, db)
+    admin_user = await require_admin(request, db)
+    from app.services.maintenance_service import clean_caches
+    try:
+        result = await clean_caches()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Échec du nettoyage : {e}")
+    await audit(db, int(str(admin_user.id)), "cache_cleaned", resource="maintenance",
+                detail=json.dumps(result))
     return MaintenanceActionResponse(
         status="success",
         message="Cache nettoyé avec succès.",
-        details={"freed": "2.5 GB", "timestamp": datetime.now(timezone.utc).isoformat()}
+        details={**result, "timestamp": datetime.now(timezone.utc).isoformat()}
     )
 
 
 @router.post("/maintenance/optimize-db", response_model=MaintenanceActionResponse)
 async def optimize_db(request: Request, db: AsyncSession = Depends(get_db)):
-    await require_admin(request, db)
+    admin_user = await require_admin(request, db)
+    from app.services.maintenance_service import optimize_database
+    try:
+        result = await optimize_database()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Échec de l'optimisation : {e}")
+    await audit(db, int(str(admin_user.id)), "database_optimized", resource="maintenance",
+                detail=json.dumps(result))
     return MaintenanceActionResponse(
         status="success",
         message="Optimisation de la base de données complétée.",
-        details={"improvement": "15%", "timestamp": datetime.now(timezone.utc).isoformat()}
+        details={**result, "timestamp": datetime.now(timezone.utc).isoformat()}
     )
 
 
@@ -1136,7 +1170,9 @@ def _guide_to_dict(g: IncidentGuide) -> dict:
 
 @router.get("/guides")
 async def list_guides(request: Request, db: AsyncSession = Depends(get_db)):
-    await require_admin(request, db)
+    # Read-only listing of published guides — visible to any logged-in user
+    # so the Documents section shows agent-synced entries. CRUD stays admin-only.
+    await get_current_user(request, db)
     rows = (await db.execute(
         select(IncidentGuide).where(IncidentGuide.is_draft == False).order_by(IncidentGuide.created_at.desc())  # noqa: E712
     )).scalars().all()
@@ -1364,3 +1400,87 @@ async def export_user_data(user_id: int, request: Request, db: AsyncSession = De
         "messages": [{"id": m.id, "session_id": m.session_id, "sender": m.sender, "text": m.text, "created_at": str(m.created_at)} for m in messages_q],
         "feedback": [{"id": f.id, "rating": f.rating, "reason": f.reason, "created_at": str(f.created_at)} for f in feedback_q],
     }
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  AI Insights — knowledge gaps, incident clusters, routing thresholds
+# ═══════════════════════════════════════════════════════════════════
+
+@router.get("/knowledge-gaps")
+async def get_knowledge_gaps(
+    request: Request, refresh: bool = False, db: AsyncSession = Depends(get_db)
+):
+    """Latest knowledge-gap report (clusters of questions the KB failed on).
+    ?refresh=true recomputes on demand."""
+    await require_admin(request, db)
+    from app.services.clustering_service import analyze_knowledge_gaps, latest_report
+    from app.services.agent_service import rag_settings
+    if refresh:
+        cfg = await rag_settings(db)
+        report = await analyze_knowledge_gaps(db, t_low=cfg["t_low"])
+        await db.commit()
+        return report
+    report = await latest_report(db, "knowledge_gaps")
+    return report or {"clusters": [], "analyzed_queries": 0, "status": "no_report"}
+
+
+@router.get("/incident-clusters")
+async def get_incident_clusters(
+    request: Request, days: int = 30, refresh: bool = False,
+    db: AsyncSession = Depends(get_db)
+):
+    """Semantic clusters of incident-intent messages (beyond RG2 keyword counts)."""
+    await require_admin(request, db)
+    from app.services.clustering_service import analyze_incident_clusters, latest_report
+    if refresh:
+        report = await analyze_incident_clusters(db, days=max(1, min(days, 365)))
+        await db.commit()
+        return report
+    report = await latest_report(db, "incident_clusters")
+    return report or {"clusters": [], "analyzed_messages": 0, "status": "no_report"}
+
+
+@router.get("/routing-thresholds")
+async def get_routing_thresholds(
+    request: Request, refresh: bool = False, db: AsyncSession = Depends(get_db)
+):
+    """Current RAG routing config + latest data-driven threshold recommendation."""
+    await require_admin(request, db)
+    from app.services.clustering_service import recommend_thresholds, latest_report
+    from app.services.agent_service import rag_settings
+    current = await rag_settings(db)
+    if refresh:
+        recommendation = await recommend_thresholds(db)
+        await db.commit()
+    else:
+        recommendation = await latest_report(db, "threshold_recommendation")
+    return {"current": current, "recommendation": recommendation}
+
+
+@router.post("/routing-thresholds")
+async def apply_routing_thresholds(
+    data: dict, request: Request, db: AsyncSession = Depends(get_db)
+):
+    """Apply RAG settings (thresholds/toggles). Read live by the chat pipeline."""
+    admin_user = await require_admin(request, db)
+    from app.services.agent_service import update_rag_settings, RAG_DEFAULTS
+
+    for key in ("t_low", "t_high"):
+        if key in data:
+            try:
+                data[key] = float(data[key])
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail=f"Valeur invalide pour {key}")
+            if not 0.0 <= data[key] <= 1.0:
+                raise HTTPException(status_code=400, detail=f"{key} doit être entre 0 et 1")
+    t_low = data.get("t_low", RAG_DEFAULTS["t_low"])
+    t_high = data.get("t_high", RAG_DEFAULTS["t_high"])
+    if "t_low" in data or "t_high" in data:
+        if t_low >= t_high:
+            raise HTTPException(status_code=400, detail="t_low doit être inférieur à t_high")
+
+    updated = await update_rag_settings(db, data)
+    await db.commit()
+    await audit(db, int(str(admin_user.id)), "rag_settings_updated",
+                resource="rag_settings", detail=json.dumps(data))
+    return {"status": "success", "settings": updated}

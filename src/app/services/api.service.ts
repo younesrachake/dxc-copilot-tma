@@ -10,11 +10,54 @@ export interface LoginResponse {
   user: { id: number; email: string; full_name?: string };
 }
 
+export interface ChatCitation {
+  index: number;
+  source: string;
+}
+
 export interface ChatApiResponse {
   reply: string;
   session_id: string;
   guide_card?: any;
   sources?: string[];
+  jira_ticket?: any;
+  citations?: ChatCitation[];
+  grounded?: boolean | null;
+  intent?: string;
+  cached?: boolean;
+}
+
+export interface ChatStreamHandlers {
+  onStatus?: (text: string) => void;
+  onToken: (text: string) => void;
+  onMeta: (meta: Partial<ChatApiResponse>) => void;
+  onDone: () => void;
+  onError: (message: string) => void;
+}
+
+export interface ConversationSearchHit {
+  session_id: string;
+  session_title: string;
+  message_id: number;
+  sender: string;
+  snippet: string;
+  score: number;
+}
+
+/** Parse one SSE block ("event: X\ndata: {...}") into {event, data}, or null if empty/invalid. */
+export function parseSseBlock(block: string): { event: string; data: any } | null {
+  let event = 'message';
+  let data = '';
+  for (const line of block.split('\n')) {
+    if (line.startsWith('event: ')) event = line.slice(7).trim();
+    else if (line.startsWith('data: ')) data += line.slice(6);
+  }
+  if (!data) return null;
+  try {
+    return { event, data: JSON.parse(data) };
+  } catch {
+    return null;
+  }
 }
 
 export interface RagAnalyticsResponse {
@@ -92,6 +135,73 @@ export class ApiService {
     ).pipe(catchError(this.handleError));
   }
 
+  // ── Chat streaming (SSE over POST — EventSource can't POST) ──
+  async streamMessage(message: string, sessionId: string | undefined, handlers: ChatStreamHandlers): Promise<void> {
+    const formData = new FormData();
+    formData.append('message', message);
+    if (sessionId) formData.append('session_id', sessionId);
+
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}/api/chat/stream`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+    } catch {
+      handlers.onError('Impossible de contacter le serveur. Vérifiez votre connexion.');
+      return;
+    }
+    if (!response.ok || !response.body) {
+      handlers.onError(response.status === 401
+        ? 'Session expirée. Veuillez vous reconnecter.'
+        : `Erreur ${response.status}`);
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let finished = false;
+
+    const processBlock = (block: string) => {
+      const parsed = parseSseBlock(block);
+      if (!parsed) return;
+      const payload = parsed.data;
+      switch (parsed.event) {
+        case 'status': handlers.onStatus?.(payload.text || ''); break;
+        case 'token': handlers.onToken(payload.text || ''); break;
+        case 'meta': handlers.onMeta(payload); break;
+        case 'done': finished = true; handlers.onDone(); break;
+        case 'error': finished = true; handlers.onError(payload.detail || 'Erreur du serveur'); break;
+      }
+    };
+
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let sep: number;
+        while ((sep = buffer.indexOf('\n\n')) !== -1) {
+          processBlock(buffer.slice(0, sep));
+          buffer = buffer.slice(sep + 2);
+        }
+      }
+      if (!finished) handlers.onDone();
+    } catch {
+      if (!finished) handlers.onError('Le flux de réponse a été interrompu.');
+    }
+  }
+
+  // ── Semantic conversation search ─────────────────────────
+  searchConversations(query: string): Observable<{ results: ConversationSearchHit[] }> {
+    return this.http.get<{ results: ConversationSearchHit[] }>(
+      `${this.baseUrl}/api/chat/search?q=${encodeURIComponent(query)}`,
+      { withCredentials: true }
+    ).pipe(catchError(this.handleError));
+  }
+
   // ── History ──────────────────────────────────────────────
   getSessions(): Observable<SessionItem[]> {
     return this.http.get<SessionItem[]>(
@@ -146,6 +256,27 @@ export class ApiService {
 
   getRagAnalytics(): Observable<RagAnalyticsResponse> {
     return this.http.get<RagAnalyticsResponse>(`${this.baseUrl}/api/admin/analytics/rag`, { withCredentials: true })
+      .pipe(catchError(this.handleError));
+  }
+
+  // ── Admin AI Insights ──────────────────────────────────
+  getKnowledgeGaps(refresh = false): Observable<any> {
+    return this.http.get(`${this.baseUrl}/api/admin/knowledge-gaps?refresh=${refresh}`, { withCredentials: true })
+      .pipe(catchError(this.handleError));
+  }
+
+  getIncidentClusters(days = 30, refresh = false): Observable<any> {
+    return this.http.get(`${this.baseUrl}/api/admin/incident-clusters?days=${days}&refresh=${refresh}`, { withCredentials: true })
+      .pipe(catchError(this.handleError));
+  }
+
+  getRoutingThresholds(refresh = false): Observable<any> {
+    return this.http.get(`${this.baseUrl}/api/admin/routing-thresholds?refresh=${refresh}`, { withCredentials: true })
+      .pipe(catchError(this.handleError));
+  }
+
+  applyRoutingThresholds(data: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/api/admin/routing-thresholds`, data, { withCredentials: true })
       .pipe(catchError(this.handleError));
   }
 
@@ -393,8 +524,34 @@ export class ApiService {
       .pipe(catchError(this.handleError));
   }
 
+  // ── Agent de synchronisation KB ──────────────────────────
+  getAgentStatus(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/api/agent/status`, { withCredentials: true })
+      .pipe(catchError(this.handleError));
+  }
+
+  setAgentFrequency(frequency: string): Observable<any> {
+    return this.http.put(`${this.baseUrl}/api/agent/frequency`, { frequency }, { withCredentials: true })
+      .pipe(catchError(this.handleError));
+  }
+
+  runAgentNow(): Observable<any> {
+    return this.http.post(`${this.baseUrl}/api/agent/run`, {}, { withCredentials: true })
+      .pipe(catchError(this.handleError));
+  }
+
   // ── Error handler ────────────────────────────────────────
   private handleError(error: HttpErrorResponse) {
+    // FastAPI returns `detail` as a string (HTTPException) or as an array of
+    // validation errors (422) — flatten the array to readable French text.
+    const rawDetail = error.error?.detail;
+    const detail = Array.isArray(rawDetail)
+      ? rawDetail
+          .map((d: any) => String(d?.msg || '').replace(/^Value error,\s*/i, ''))
+          .filter((m: string) => m)
+          .join(' — ')
+      : (typeof rawDetail === 'string' ? rawDetail : '');
+
     let message = 'Erreur inconnue';
     if (error.error instanceof ErrorEvent) {
       message = `Erreur réseau: ${error.error.message}`;
@@ -402,12 +559,12 @@ export class ApiService {
       message = 'Impossible de contacter le serveur. Vérifiez votre connexion.';
     } else if (error.status === 401) {
       message = 'Session expirée. Veuillez vous reconnecter.';
-    } else if (error.status === 400) {
-      message = error.error?.detail || 'Requête invalide';
+    } else if (error.status === 400 || error.status === 422) {
+      message = detail || 'Requête invalide';
     } else if (error.status === 500) {
       message = 'Erreur serveur. Veuillez réessayer plus tard.';
     } else {
-      message = error.error?.detail || `Erreur ${error.status}`;
+      message = detail || `Erreur ${error.status}`;
     }
     return throwError(() => new Error(message));
   }

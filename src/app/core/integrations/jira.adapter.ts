@@ -1,31 +1,34 @@
 import { Injectable } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 import { TicketIntegration, TicketPayload, TicketResult } from './ticket-integration.interface';
+import { ApiService } from '../../services/api.service';
 
 @Injectable({ providedIn: 'root' })
 export class JiraAdapter implements TicketIntegration {
   readonly name = 'Jira';
 
-  async createTicket(payload: TicketPayload): Promise<TicketResult> {
-    await this.simulateDelay(600);
+  constructor(private api: ApiService) {}
 
-    const key = `${payload.project}-${Math.floor(Math.random() * 9000 + 1000)}`;
+  async createTicket(payload: TicketPayload): Promise<TicketResult> {
+    // The backend stores summary/description/priority — fold the rest into the description
+    const description =
+      `${payload.description}\n\n` +
+      `Projet : ${payload.project} | Type : ${payload.type} | Assigné à : ${payload.assignee}`;
+    const res = await firstValueFrom(
+      this.api.createJiraTicket(payload.summary, description, payload.priority)
+    );
     return {
-      id:        `jira-mock-${Date.now()}`,
-      key,
-      url:       `https://dxc.atlassian.net/browse/${key}`,
-      status:    'En cours d\'analyse',
+      id:        res.key,
+      key:       res.key,
+      url:       res.url || `https://jira.dxc.com/browse/${res.key}`,
+      status:    res.status || 'Created',
       priority:  payload.priority,
       createdAt: new Date()
     };
   }
 
   async getTicketStatus(ticketKey: string): Promise<string> {
-    await this.simulateDelay(300);
-    const statuses = ['En cours d\'analyse', 'En cours', 'En attente de validation', 'Résolu'];
-    return statuses[Math.floor(Math.random() * statuses.length)];
-  }
-
-  private simulateDelay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    const res = await firstValueFrom(this.api.getJiraStatus(ticketKey));
+    return res.status;
   }
 }

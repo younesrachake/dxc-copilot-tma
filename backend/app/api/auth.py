@@ -2,7 +2,6 @@ import asyncio
 import functools
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -209,7 +208,8 @@ async def sso_callback(code: str, request: Request, response: Response, db: Asyn
         id_token = token_data.get("id_token", "")
 
         # Decode id_token without verification (already validated by provider)
-        import base64, json as _json
+        import base64
+        import json as _json
         parts = id_token.split(".")
         if len(parts) < 2:
             raise ValueError("Invalid id_token")

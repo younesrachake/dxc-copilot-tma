@@ -43,6 +43,23 @@ async def init_db():
                 timestamp  DATETIME DEFAULT CURRENT_TIMESTAMP
             )
             """,
+            # Raw query text — the hash is one-way; clustering/gap analysis needs the text
+            "ALTER TABLE rag_analytics ADD COLUMN query_text TEXT",
+            # Join key to feedback (via messages) for learned routing thresholds
+            "ALTER TABLE rag_analytics ADD COLUMN bot_message_id INTEGER",
+            # Groundedness evaluator verdict (1/0, NULL = not evaluated)
+            "ALTER TABLE rag_analytics ADD COLUMN grounded INTEGER",
+            # Classified intent of the user message
+            "ALTER TABLE rag_analytics ADD COLUMN intent TEXT",
+            # Reports produced by background agents (knowledge gaps, clusters, thresholds)
+            """
+            CREATE TABLE IF NOT EXISTS agent_reports (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                report_type TEXT    NOT NULL,
+                payload     TEXT    NOT NULL,
+                created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
         ]
         import sqlalchemy
         for sql in _migrations:

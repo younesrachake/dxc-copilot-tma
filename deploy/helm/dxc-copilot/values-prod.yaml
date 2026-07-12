@@ -1,0 +1,28 @@
+# Production overrides:  helm upgrade --install dxc-copilot . -f values-prod.yaml
+image:
+  frontend:
+    tag: "" # pin to a release tag, e.g. v1.2.3 — never latest in production
+  backend:
+    tag: ""
+  pullSecrets:
+    - ghcr-pull-secret
+
+frontend:
+  replicas: 3
+  hpa:
+    maxReplicas: 8
+
+backend:
+  resources:
+    requests: { cpu: "1", memory: 3Gi }
+    limits: { cpu: "3", memory: 6Gi }
+  persistence:
+    chroma:
+      size: 20Gi
+
+ingress:
+  host: copilot.dxc.com
+
+metrics:
+  serviceMonitor:
+    enabled: true

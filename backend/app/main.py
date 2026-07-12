@@ -17,8 +17,7 @@ from app.core.limiter import limiter
 from app.core.database import init_db, async_session
 from app.core.config import validate_config, CORS_ORIGINS, SESSION_TTL_DAYS, ENV, SENTRY_DSN
 from app.models.db import User, IncidentGuide, MaintenanceTask, Session as ChatSession
-from app.api import auth, chat, admin, feedback, jira, terminal
-from app.services.llm_service import llm_service
+from app.api import auth, chat, admin, feedback, jira, terminal, agent
 
 # ── Sentry error tracking (optional) ─────────────────────────────
 if SENTRY_DSN:
@@ -41,10 +40,24 @@ _file_handler = RotatingFileHandler(
     backupCount=5,
     encoding="utf-8",
 )
-_file_handler.setFormatter(logging.Formatter(
-    "%(asctime)s %(levelname)-8s %(name)s %(message)s",
-    datefmt="%Y-%m-%dT%H:%M:%SZ"
-))
+# JSON logs in production (LOG_JSON=1) so Loki/Grafana can query fields
+if os.getenv("LOG_JSON", "").lower() in ("1", "true", "yes"):
+    try:
+        from pythonjsonlogger import jsonlogger
+        _json_fmt = jsonlogger.JsonFormatter(
+            "%(asctime)s %(levelname)s %(name)s %(message)s",
+            datefmt="%Y-%m-%dT%H:%M:%SZ",
+        )
+        _file_handler.setFormatter(_json_fmt)
+        for _h in logging.getLogger().handlers:
+            _h.setFormatter(_json_fmt)
+    except ImportError:
+        pass
+else:
+    _file_handler.setFormatter(logging.Formatter(
+        "%(asctime)s %(levelname)-8s %(name)s %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%SZ"
+    ))
 _file_handler.setLevel(logging.INFO)
 logging.getLogger().addHandler(_file_handler)
 
@@ -73,6 +86,31 @@ async def _session_cleanup_loop():
         except Exception as exc:
             logger.warning("Session cleanup error: %s", exc)
         await asyncio.sleep(86400)  # run once per day
+
+
+async def _agent_scheduler_loop():
+    """Background task: run the knowledge sync agent when its interval is due."""
+    from app.services.agent_service import knowledge_sync_agent
+    await asyncio.sleep(30)  # let startup seeding finish before the first run
+    while True:
+        try:
+            async with async_session() as db:
+                await knowledge_sync_agent.run_if_due(db)
+        except Exception as exc:
+            logger.warning("Knowledge sync agent error: %s", exc)
+        await asyncio.sleep(3600)  # wake hourly, run only when due
+
+
+async def _conversation_backfill_once():
+    """One-shot: index pre-existing chat messages for semantic search
+    (guarded by a platform_settings flag inside backfill)."""
+    from app.services.conversation_index_service import conversation_index_service
+    await asyncio.sleep(20)  # after startup seeding, before agent loop
+    try:
+        async with async_session() as db:
+            await conversation_index_service.backfill(db)
+    except Exception as exc:
+        logger.warning("Conversation index backfill error: %s", exc)
 
 
 @asynccontextmanager
@@ -164,13 +202,20 @@ async def lifespan(app: FastAPI):
     # ── Start background session cleanup task ─────────────────────
     cleanup_task = asyncio.create_task(_session_cleanup_loop())
 
+    # ── Start knowledge sync agent scheduler ──────────────────────
+    agent_task = asyncio.create_task(_agent_scheduler_loop())
+
+    # ── One-shot conversation index backfill ──────────────────────
+    backfill_task = asyncio.create_task(_conversation_backfill_once())
+
     yield
 
-    cleanup_task.cancel()
-    try:
-        await cleanup_task
-    except asyncio.CancelledError:
-        pass
+    for task in (cleanup_task, agent_task, backfill_task):
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(
@@ -241,12 +286,25 @@ async def limit_upload_size(request: Request, call_next):
     return await call_next(request)
 
 
+# ── Prometheus metrics (/metrics — blocked at nginx, scraped internally) ──
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+    Instrumentator(
+        excluded_handlers=["/metrics", "/healthz"],
+        should_group_status_codes=False,
+    ).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+    logger.info("Prometheus /metrics endpoint enabled")
+except ImportError:
+    logger.info("prometheus-fastapi-instrumentator not installed — /metrics disabled")
+
+
 app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(admin.router)
 app.include_router(feedback.router)
 app.include_router(jira.router)
 app.include_router(terminal.router)
+app.include_router(agent.router)
 
 
 

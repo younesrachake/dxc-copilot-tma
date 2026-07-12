@@ -26,8 +26,42 @@
         <span class="nav-icon">+</span> <span class="nav-text">Nouveau chat</span>
       </button>
 
+      <!-- Semantic conversation search -->
+      <div class="conv-search-row">
+        <span class="conv-search-icon">🔎</span>
+        <input class="conv-search-input"
+               type="text"
+               [(ngModel)]="searchQuery"
+               (ngModelChange)="onSearchChange()"
+               placeholder="Recherche sémantique..." />
+        <button class="conv-search-clear" *ngIf="searchQuery" (click)="clearSearch()">✕</button>
+      </div>
+
+      <!-- Search results (replace history while searching) -->
+      <div class="history-group" *ngIf="searchQuery">
+        <div class="history-title">
+          {{ searching ? 'Recherche…' : 'Résultats (' + searchResults.length + ')' }}
+        </div>
+        <ul class="history-list">
+          <li *ngFor="let hit of searchResults"
+              class="history-item"
+              (click)="openSearchResult(hit)">
+            <div class="item-main-content">
+              <span class="item-topic">{{ hit.session_title || 'Conversation' }}</span>
+            </div>
+            <div class="conv-search-snippet">
+              <span class="conv-search-sender">{{ hit.sender === 'user' ? '👤' : '🤖' }}</span>
+              {{ hit.snippet.length > 90 ? hit.snippet.slice(0, 90) + '…' : hit.snippet }}
+            </div>
+          </li>
+          <li class="conv-search-empty" *ngIf="!searching && searchResults.length === 0">
+            Aucune conversation trouvée
+          </li>
+        </ul>
+      </div>
+
       <!-- History List -->
-      <div class="history-group">
+      <div class="history-group" *ngIf="!searchQuery">
         <div class="history-title">Conversations</div>
         <ul class="history-list">
           <li *ngFor="let chat of history"

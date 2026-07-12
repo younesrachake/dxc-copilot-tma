@@ -27,8 +27,12 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 KNOWLEDGE_BASE_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "knowledge_base")
+    os.getenv("KNOWLEDGE_BASE_DIR")
+    or os.path.join(os.path.dirname(__file__), "..", "..", "knowledge_base")
 )
+
+# Hermetic-test switch: skip ChromaDB entirely, use the keyword fallback store
+_DISABLE_CHROMA = os.getenv("DISABLE_CHROMA", "").lower() in ("1", "true", "yes")
 CHROMA_PERSIST_DIR = os.path.join(KNOWLEDGE_BASE_DIR, "chroma_db")
 MANIFEST_PATH = os.path.join(KNOWLEDGE_BASE_DIR, "manifest.json")
 
@@ -301,6 +305,7 @@ class RAGService:
     def __init__(self):
         self._chroma_available = False
         self._collection = None
+        self._client = None   # shared PersistentClient (also used by conversation index)
         self._documents: List[dict] = list(_BUILTIN_DOCS)
         # BM25 hybrid retrieval index
         self._bm25: Optional[object] = None
@@ -309,13 +314,32 @@ class RAGService:
         self._init_backend()
 
     def _init_backend(self):
+        if _DISABLE_CHROMA:
+            logger.info("DISABLE_CHROMA set — using in-memory keyword fallback store")
+            self._chroma_available = False
+            self._collection = None
+            return
         try:
             import chromadb
             client = chromadb.PersistentClient(path=CHROMA_PERSIST_DIR)
-            collection = client.get_or_create_collection(
-                name="dxc_knowledge_base",
-                metadata={"hnsw:space": "cosine"}
-            )
+            self._client = client
+
+            # Prefer the local multilingual embedding model (French-aware) over
+            # ChromaDB's default English-centric ONNX model when available.
+            embedding_fn = None
+            target_model = None
+            try:
+                from app.services.embedding_service import (
+                    embedding_service, EMBEDDING_MODEL_NAME, MultilingualEmbeddingFunction
+                )
+                if embedding_service.available:
+                    embedding_fn = MultilingualEmbeddingFunction()
+                    target_model = EMBEDDING_MODEL_NAME
+            except Exception as e:
+                logger.warning("Local embedding model unavailable (%s) — using ChromaDB default", e)
+
+            collection = self._get_collection(client, embedding_fn, target_model)
+
             # Verify the embedding function works before committing to ChromaDB mode
             _probe_id = "__health_probe__"
             collection.upsert(
@@ -326,7 +350,10 @@ class RAGService:
             collection.delete(ids=[_probe_id])
             self._collection = collection
             self._chroma_available = True
-            logger.info("ChromaDB PersistentClient initialized at %s", CHROMA_PERSIST_DIR)
+            logger.info(
+                "ChromaDB PersistentClient initialized at %s (embeddings: %s)",
+                CHROMA_PERSIST_DIR, target_model or "chromadb-default"
+            )
             self._load_builtin_knowledge()
         except Exception as e:
             logger.warning(
@@ -337,6 +364,62 @@ class RAGService:
             self._chroma_available = False
             self._collection = None
             # Built-in docs already pre-loaded in self._documents at __init__ time
+
+    def _get_collection(self, client, embedding_fn, target_model: Optional[str]):
+        """Open the KB collection, re-indexing it when the embedding model changed.
+
+        Old and new vectors are both 384-dim, so ChromaDB would silently mix
+        them — the `embedding_model` metadata marker prevents that.
+        """
+        kwargs = {"embedding_function": embedding_fn} if embedding_fn else {}
+        metadata = {"hnsw:space": "cosine"}
+        if target_model:
+            metadata["embedding_model"] = target_model
+
+        collection = client.get_or_create_collection(
+            name="dxc_knowledge_base", metadata=metadata, **kwargs
+        )
+        if not target_model:
+            return collection
+
+        existing_model = (collection.metadata or {}).get("embedding_model")
+        if existing_model == target_model:
+            return collection
+        if collection.count() == 0:
+            # Empty legacy collection: recreate with the marker, nothing to migrate
+            client.delete_collection("dxc_knowledge_base")
+            return client.get_or_create_collection(
+                name="dxc_knowledge_base", metadata=metadata, **kwargs
+            )
+        return self._reindex_collection(client, collection, metadata, kwargs)
+
+    @staticmethod
+    def _reindex_collection(client, old_collection, metadata: dict, kwargs: dict):
+        """Re-embed every stored chunk with the current embedding model."""
+        logger.info(
+            "Embedding model changed (was: %s, now: %s) — re-indexing knowledge base...",
+            (old_collection.metadata or {}).get("embedding_model", "chromadb-default"),
+            metadata.get("embedding_model"),
+        )
+        data = old_collection.get(include=["documents", "metadatas"])
+        ids = data.get("ids") or []
+        docs = data.get("documents") or []
+        metas = data.get("metadatas") or []
+
+        client.delete_collection("dxc_knowledge_base")
+        new_collection = client.get_or_create_collection(
+            name="dxc_knowledge_base", metadata=metadata, **kwargs
+        )
+        batch = 100
+        for i in range(0, len(ids), batch):
+            new_collection.add(
+                ids=ids[i:i + batch],
+                documents=docs[i:i + batch],
+                metadatas=metas[i:i + batch],
+            )
+            logger.info("Re-indexed %d/%d chunks", min(i + batch, len(ids)), len(ids))
+        logger.info("Knowledge base re-index complete: %d chunks", len(ids))
+        return new_collection
 
     def _load_builtin_knowledge(self):
         """Load built-in knowledge entries into ChromaDB + BM25 if not already present."""
@@ -397,16 +480,56 @@ class RAGService:
 
     # ── Search ────────────────────────────────────────────────────
 
-    async def search(self, query: str, n_results: int = 3) -> Tuple[List[str], List[float], List[str]]:
+    async def search(
+        self, query: str, n_results: int = 3, rerank: bool = True
+    ) -> Tuple[List[str], List[float], List[str]]:
         """
-        Hybrid search: dense (ChromaDB) + sparse (BM25) fused with Reciprocal Rank Fusion.
+        Hybrid search: dense (ChromaDB) + sparse (BM25) fused with Reciprocal Rank Fusion,
+        optionally reranked with a multilingual cross-encoder.
         Returns (documents, scores, sources) where:
-          - scores are 0-1 (1 = perfect match)
+          - scores are 0-1 (1 = perfect match); cross-encoder sigmoid scores when reranked
           - sources are document IDs / topic labels for attribution
         """
-        if self._chroma_available and self._collection is not None:
-            return self._search_hybrid(query, n_results)
-        return self._search_keyword(query, n_results)
+        if not (self._chroma_available and self._collection is not None):
+            return self._search_keyword(query, n_results)
+
+        use_rerank = False
+        if rerank:
+            try:
+                from app.services.embedding_service import embedding_service
+                use_rerank = embedding_service.reranker_available
+            except Exception:
+                use_rerank = False
+
+        # Fetch a wider candidate pool when reranking
+        candidate_n = max(10, n_results * 3) if use_rerank else n_results
+        docs, scores, sources = self._search_hybrid(query, candidate_n)
+
+        if use_rerank and docs:
+            try:
+                from app.services.embedding_service import embedding_service
+                ce_scores = await embedding_service.rerank(query, docs)
+                if ce_scores:
+                    # Cross-encoder logits are not calibrated to the cosine scale
+                    # used by confidence routing — use them for ORDERING only and
+                    # keep each doc's dense similarity score attached.
+                    order = sorted(
+                        range(len(docs)), key=lambda i: ce_scores[i], reverse=True
+                    )[:n_results]
+                    reranked = (
+                        [docs[i] for i in order],
+                        [scores[i] for i in order],
+                        [sources[i] for i in order],
+                    )
+                    logger.info(
+                        "Reranked %d candidates (kept dense scores, top %.3f)",
+                        len(docs), max(reranked[1]) if reranked[1] else 0.0
+                    )
+                    return reranked
+            except Exception as e:
+                logger.warning("Cross-encoder rerank failed (%s) — using fused order", e)
+
+        return docs[:n_results], scores[:n_results], sources[:n_results]
 
     def _search_hybrid(self, query: str, n_results: int) -> Tuple[List[str], List[float], List[str]]:
         """Dense (ChromaDB) + Sparse (BM25) retrieval fused with RRF."""
@@ -420,10 +543,12 @@ class RAGService:
 
             # ── Dense retrieval via ChromaDB ──────────────────────
             fetch_n = min(max(n_results * 2, 5), total)
+            # NB: "ids" must not appear in include (chromadb 0.4.x rejects it);
+            # ids are always returned regardless.
             results = self._collection.query(
                 query_texts=[query],
                 n_results=fetch_n,
-                include=["documents", "distances", "metadatas", "ids"]
+                include=["documents", "distances", "metadatas"]
             )
             dense_docs_raw = results.get("documents", [[]])[0]
             dense_dists    = results.get("distances",  [[]])[0]
@@ -556,7 +681,17 @@ class RAGService:
             logger.info("Stored %d chunks from %s in keyword fallback store", len(chunks), source)
 
         self._update_manifest(source, topic, len(chunks))
+        self._invalidate_semantic_cache()
         return len(chunks)
+
+    @staticmethod
+    def _invalidate_semantic_cache():
+        """KB content changed — cached answers may be stale."""
+        try:
+            from app.services.query_service import query_service
+            query_service.invalidate_cache()
+        except Exception:
+            pass
 
     async def ingest_docx(self, file_bytes: bytes, filename: str) -> int:
         """Extract text from DOCX and ingest into the knowledge base."""
@@ -618,6 +753,7 @@ class RAGService:
 
         manifest = [d for d in manifest if d["id"] != doc_id]
         self._write_manifest(manifest)
+        self._invalidate_semantic_cache()
         logger.info("Deleted document %s (%d chunks)", source, chunks_removed)
         return chunks_removed
 

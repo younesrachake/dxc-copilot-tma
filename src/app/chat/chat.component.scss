@@ -2020,3 +2020,64 @@
   font-family: 'Courier New', monospace;
   white-space: nowrap;
 }
+
+// ── Inline citations ([n] → KB sources) ─────────────────────────
+.msg-citations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.72rem;
+}
+
+.citation-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  background: rgba(95, 37, 159, 0.08);
+  color: var(--dxc-purple);
+  border: 1px solid rgba(95, 37, 159, 0.2);
+  border-radius: 12px;
+  font-family: 'Courier New', monospace;
+  white-space: nowrap;
+  cursor: help;
+
+  sup {
+    font-weight: 700;
+  }
+}
+
+// ── AI quality badges (groundedness / semantic cache) ────────────
+.msg-quality-badges {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.quality-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: default;
+
+  &.grounded {
+    background: rgba(34, 154, 22, 0.1);
+    color: #229a16;
+    border: 1px solid rgba(34, 154, 22, 0.3);
+  }
+
+  &.ungrounded {
+    background: rgba(230, 145, 0, 0.1);
+    color: #b76e00;
+    border: 1px solid rgba(230, 145, 0, 0.3);
+  }
+
+  &.cached {
+    background: rgba(0, 120, 220, 0.08);
+    color: #0a6cc2;
+    border: 1px solid rgba(0, 120, 220, 0.25);
+  }
+}

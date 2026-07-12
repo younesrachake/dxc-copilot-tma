@@ -1,8 +1,8 @@
-version: '3.9'
+name: dxc-copilot
 
 services:
 
-  # ── Angular App (Nginx) ────────────────────────────────────────
+  # ── Angular App (Nginx, reverse-proxies /api → backend) ───────
   app:
     build:
       context: .
@@ -13,12 +13,22 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    environment:
-      - NODE_ENV=production
     depends_on:
-      redis:
+      backend:
         condition: service_healthy
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging: &default-logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
     networks:
       - dxc-net
     labels:
@@ -34,8 +44,9 @@ services:
       dockerfile: Dockerfile
     image: dxc-copilot-backend:latest
     container_name: dxc-copilot-backend
-    ports:
-      - "8000:8000"
+    # Not published to the host — reachable only through nginx on the internal network
+    expose:
+      - "8000"
     environment:
       - DATABASE_URL=${DATABASE_URL:?DATABASE_URL must be set (use PostgreSQL in production)}
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set to a strong random value}
@@ -46,6 +57,8 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-}
       - REDIS_URL=redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set}@redis:6379/0
       - SENTRY_DSN=${SENTRY_DSN:-}
+      - LOG_JSON=${LOG_JSON:-1}
+      - BACKUP_DIR=/app/backups
       - SSO_CLIENT_ID=${SSO_CLIENT_ID:-}
       - SSO_CLIENT_SECRET=${SSO_CLIENT_SECRET:-}
       - SSO_TENANT_ID=${SSO_TENANT_ID:-}
@@ -54,12 +67,26 @@ services:
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+    volumes:
+      - chroma_data:/app/knowledge_base/chroma_db
+      - backend_logs:/app/logs
+      - backups:/app/backups
     depends_on:
       redis:
         condition: service_healthy
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "2.00"
+          memory: 4G     # local ML models need ~1.5 GB RSS + headroom
+        reservations:
+          memory: 2G
     networks:
       - dxc-net
     healthcheck:
@@ -67,6 +94,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 120s   # migrations + local model loading on first boot
 
   # ── Redis Cache ────────────────────────────────────────────────
   redis:
@@ -78,8 +106,9 @@ services:
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
       --save 60 1000
-    ports:
-      - "6379:6379"
+    # Internal only — never published to the host
+    expose:
+      - "6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -88,6 +117,14 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
     networks:
       - dxc-net
 
@@ -99,8 +136,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-dxc_copilot_prod}
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
-    ports:
-      - "5432:5432"
+    # Internal only — never published to the host
+    expose:
+      - "5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -110,12 +148,149 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 1G
+    networks:
+      - dxc-net
+
+  # ── Scheduled Database Backups (pg_dump + rotation) ────────────
+  backup:
+    image: postgres:15-alpine
+    container_name: dxc-copilot-backup
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dxc_copilot_prod}
+      - BACKUP_DIR=/backups
+      - BACKUP_KEEP=${BACKUP_KEEP:-14}
+      - BACKUP_INTERVAL_SECONDS=${BACKUP_INTERVAL_SECONDS:-86400}
+    volumes:
+      - ./scripts/backup.sh:/backup.sh:ro
+      - backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+    networks:
+      - dxc-net
+
+  # ═══════════════════════════════════════════════════════════════
+  #  Observability profile:  docker compose --profile observability up
+  # ═══════════════════════════════════════════════════════════════
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: dxc-prometheus
+    profiles: ["observability"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=30d
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    expose:
+      - "9090"
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+    networks:
+      - dxc-net
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: dxc-grafana
+    profiles: ["observability"]
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+    networks:
+      - dxc-net
+
+  loki:
+    image: grafana/loki:3.1.0
+    container_name: dxc-loki
+    profiles: ["observability"]
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./observability/loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+    expose:
+      - "3100"
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+    networks:
+      - dxc-net
+
+  promtail:
+    image: grafana/promtail:3.1.0
+    container_name: dxc-promtail
+    profiles: ["observability"]
+    command: -config.file=/etc/promtail/promtail.yml
+    volumes:
+      - ./observability/promtail/promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
     networks:
       - dxc-net
 
 volumes:
   redis_data:
   postgres_data:
+  chroma_data:
+  backend_logs:
+  backups:
+  prometheus_data:
+  grafana_data:
+  loki_data:
 
 networks:
   dxc-net:

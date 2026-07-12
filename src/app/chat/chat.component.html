@@ -179,6 +179,24 @@
               <span class="source-tag" *ngFor="let s of message.sources">{{ s }}</span>
             </div>
 
+            <!-- ── Inline Citations ([n] markers → sources) ── -->
+            <div class="msg-citations" *ngIf="message.citations && message.citations.length">
+              <span class="citation-chip" *ngFor="let c of message.citations"
+                    [title]="'Source : ' + c.source">
+                <sup>[{{ c.index }}]</sup> {{ c.source }}
+              </span>
+            </div>
+
+            <!-- ── AI quality badges ── -->
+            <div class="msg-quality-badges" *ngIf="message.sender === 'bot' && (message.grounded !== undefined || message.cached)">
+              <span class="quality-badge grounded" *ngIf="message.grounded === true"
+                    title="Réponse vérifiée par rapport à la base de connaissances">✔ Vérifié KB</span>
+              <span class="quality-badge ungrounded" *ngIf="message.grounded === false"
+                    title="La réponse n'a pas pu être vérifiée par rapport à la base de connaissances">⚠ Non vérifié</span>
+              <span class="quality-badge cached" *ngIf="message.cached"
+                    title="Réponse instantanée depuis le cache sémantique">⚡ Cache</span>
+            </div>
+
             <!-- Timestamp -->
             <div class="message-time">{{ message.timestamp | date:'HH:mm' }}</div>
 
@@ -432,7 +450,7 @@
         <div class="jira-field">
           <label>Type</label>
           <select [(ngModel)]="jiraModalTicket.type" class="jira-select">
-            <option>Bug</option><option>Tâche</option><option>Histoire</option>
+            <option>Incident</option><option>Bug</option><option>Tâche</option><option>Histoire</option>
           </select>
         </div>
         <div class="jira-field">

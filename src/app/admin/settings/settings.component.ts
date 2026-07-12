@@ -22,7 +22,7 @@ export class AdminSettingsComponent implements OnInit {
       next: (res: any) => {
         const s = res.settings || {};
         const sections = ['general','security','users','ai','notifications',
-                          'integrations','storage','performance','appearance','audit'];
+                          'integrations','storage','performance','appearance','audit','knowledge'];
         for (const key of sections) {
           if (s[key] && typeof s[key] === 'object') {
             Object.assign((this as any)[key], s[key]);
@@ -272,6 +272,13 @@ export class AdminSettingsComponent implements OnInit {
   };
 
   // ── Knowledge Base ─────────────────────────────────────────────
+  // Persisted settings section (PUT /api/admin/settings/knowledge)
+  knowledge = { enabled: true };
+
+  // Agent de synchronisation
+  agentStatus: any = null;
+  agentRunLoading = false;
+
   knowledgeStats = { total_docs: 0, total_chunks: 0, total_vectors: 0, last_updated: '—', backend: '' };
   knowledgeDocs: { id: string; filename: string; chunks: number; topic: string; uploaded_at: string }[] = [];
   knowledgeUploading = false;
@@ -406,6 +413,48 @@ export class AdminSettingsComponent implements OnInit {
       this.knowledgeUploadSuccess = '';
       this.loadKnowledgeStats();
       this.loadKnowledgeDocs();
+      this.loadAgentStatus();
+    }
+  }
+
+  loadAgentStatus(): void {
+    this.api.getAgentStatus().subscribe({
+      next: (s: any) => { this.agentStatus = s; },
+      error: () => {}
+    });
+  }
+
+  runAgent(): void {
+    this.agentRunLoading = true;
+    this.api.runAgentNow().subscribe({
+      next: (res: any) => {
+        this.agentRunLoading = false;
+        this.savedFeedback = `Agent exécuté — ${res.guides_ingested} guide(s) ingéré(s), ${res.docs_mirrored} document(s) synchronisé(s).`;
+        setTimeout(() => this.savedFeedback = '', 5000);
+        this.knowledge.enabled = true;   // the agent force-enables the KB
+        this.loadAgentStatus();
+        this.loadKnowledgeStats();
+        this.loadKnowledgeDocs();
+      },
+      error: (err: any) => {
+        this.agentRunLoading = false;
+        this.savedFeedback = 'Erreur: ' + err.message;
+        setTimeout(() => this.savedFeedback = '', 4000);
+      }
+    });
+  }
+
+  agentDate(iso: string | null): string {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleString('fr-FR');
+  }
+
+  agentFrequencyLabel(freq: string | null): string {
+    switch (freq) {
+      case 'daily': return 'Quotidienne';
+      case 'monthly': return 'Mensuelle';
+      default: return 'Hebdomadaire';
     }
   }
 

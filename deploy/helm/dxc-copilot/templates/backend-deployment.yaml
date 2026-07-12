@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dxc-copilot.backend.fullname" . }}
+  labels:
+    {{- include "dxc-copilot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  strategy:
+    type: Recreate   # ChromaDB PVC is ReadWriteOnce
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "dxc-copilot.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: backend
+  template:
+    metadata:
+      labels:
+        {{- include "dxc-copilot.labels" . | nindent 8 }}
+        app.kubernetes.io/component: backend
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- range . }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      securityContext:
+        # The image already runs as its own non-root user (appuser); fsGroup
+        # makes the PVCs writable for it without guessing the UID
+        runAsNonRoot: true
+        fsGroup: 10001
+      containers:
+        - name: backend
+          image: "{{ .Values.image.registry }}/{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: {{ .Values.backend.existingSecret }}
+          env:
+            - name: LOG_DIR
+              value: /tmp/logs
+            - name: BACKUP_DIR
+              value: /app/backups
+            {{- range $key, $value := .Values.backend.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          # Local ML models take time to load — startupProbe prevents premature kills
+          startupProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+            failureThreshold: 30    # up to 5 minutes for migrations + model load
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 30
+            timeoutSeconds: 10
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 15
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.backend.persistence.chroma.enabled }}
+            - name: chroma
+              mountPath: /app/knowledge_base/chroma_db
+            {{- end }}
+            {{- if .Values.backend.persistence.backups.enabled }}
+            - name: backups
+              mountPath: /app/backups
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.backend.persistence.chroma.enabled }}
+        - name: chroma
+          persistentVolumeClaim:
+            claimName: {{ include "dxc-copilot.backend.fullname" . }}-chroma
+        {{- end }}
+        {{- if .Values.backend.persistence.backups.enabled }}
+        - name: backups
+          persistentVolumeClaim:
+            claimName: {{ include "dxc-copilot.backend.fullname" . }}-backups
+        {{- end }}

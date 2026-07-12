@@ -1,0 +1,26 @@
+DXC Copilot deployed.
+
+Prerequisites you must provision yourself:
+  1. Secret '{{ .Values.backend.existingSecret }}' in this namespace with keys:
+       DATABASE_URL            (postgresql+asyncpg://... — managed PostgreSQL)
+       REDIS_URL               (redis://:password@host:6379/0)
+       JWT_SECRET              (>= 32 random chars)
+       INITIAL_ADMIN_PASSWORD  (>= 12 chars)
+       GROQ_API_KEY            (or OPENAI_API_KEY)
+  2. TLS secret '{{ .Values.ingress.tls.secretName }}' (or cert-manager annotation).
+  3. PostgreSQL and Redis are EXTERNAL — this chart does not deploy them.
+
+Check rollout:
+  kubectl rollout status deploy/{{ include "dxc-copilot.backend.fullname" . }}
+  kubectl rollout status deploy/{{ include "dxc-copilot.frontend.fullname" . }}
+
+App URL: https://{{ .Values.ingress.host }}
+
+Notes:
+  - Backend replicas are pinned to {{ .Values.backend.replicas }}: ChromaDB uses a
+    ReadWriteOnce PVC and the semantic cache is per-process. Scale out only after
+    moving vectors to an external store (or RWX storage) — see values.yaml.
+  - First boot takes a few minutes (alembic migrations + local ML model load);
+    the startupProbe allows up to 5 minutes.
+  - /metrics is exposed on the backend service for Prometheus; enable
+    metrics.serviceMonitor when kube-prometheus-stack is installed.

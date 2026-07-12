@@ -1,0 +1,62 @@
+groups:
+  - name: dxc-copilot
+    rules:
+      - alert: BackendDown
+        expr: up{job="dxc-backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend DXC Copilot injoignable"
+          description: "Prometheus ne peut plus scraper le backend depuis 2 minutes."
+
+      - alert: HighErrorRate
+        expr: >
+          sum(rate(http_requests_total{job="dxc-backend", status=~"5.."}[5m]))
+          / sum(rate(http_requests_total{job="dxc-backend"}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Taux d'erreurs 5xx > 5%"
+          description: "{{ $value | humanizePercentage }} des requêtes échouent depuis 5 minutes."
+
+      - alert: HighP95Latency
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="dxc-backend",
+                handler!~"/api/chat.*"}[5m])) by (le)) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latence P95 API > 2s (hors endpoints LLM)"
+
+      - alert: LLMErrorSpike
+        expr: sum(increase(dxc_llm_errors_total[15m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pic d'erreurs LLM"
+          description: "Plus de 10 échecs LLM (timeout/API) sur les 15 dernières minutes."
+
+      - alert: RAGLatencyHigh
+        expr: >
+          histogram_quantile(0.95, sum(rate(dxc_rag_latency_seconds_bucket[10m])) by (le)) > 3
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Récupération RAG lente (P95 > 3s)"
+
+      - alert: KBSkippedTooOften
+        expr: >
+          sum(rate(dxc_rag_routing_total{routing="groq_only"}[1h]))
+          / sum(rate(dxc_rag_routing_total[1h])) > 0.6
+        for: 2h
+        labels:
+          severity: info
+        annotations:
+          summary: "La base de connaissances est ignorée pour >60% des questions"
+          description: "Signal de lacunes KB — vérifier le rapport 'knowledge gaps' dans l'admin."

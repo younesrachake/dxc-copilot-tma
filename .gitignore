@@ -38,3 +38,14 @@ Thumbs.db
 # ── Logs ─────────────────────────────────────────────────────
 *.log
 logs/
+
+# ── ML model caches / test artifacts ─────────────────────────
+.hf_cache/
+backend/.hf_cache/
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+backend/htmlcov/
+backend/.coverage
+backups/

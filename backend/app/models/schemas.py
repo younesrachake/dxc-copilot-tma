@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator, EmailStr, Field
+from pydantic import BaseModel, field_validator, Field
 from typing import Optional, List, Any
 from datetime import datetime
 
@@ -45,6 +45,11 @@ class ChatResponse(BaseModel):
     session_id: str
     guide_card: Optional[dict] = None
     sources: Optional[List[str]] = None   # KB source IDs used (empty when Groq answered freely)
+    jira_ticket: Optional[dict] = None    # Pre-filled Jira draft when a ticket intent is detected
+    citations: Optional[List[dict]] = None  # [{"index": n, "source": id}] mapping [n] markers in reply
+    grounded: Optional[bool] = None       # Evaluator verdict: reply supported by KB excerpts
+    intent: Optional[str] = None          # Classified intent of the user message
+    cached: bool = False                  # True when served from the semantic cache
 
 # ─── Feedback ──────────────────────────────────────────
 class FeedbackRequest(BaseModel):

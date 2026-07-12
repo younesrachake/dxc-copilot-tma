@@ -1,0 +1,126 @@
+{
+  "title": "DXC Copilot — API & RAG",
+  "uid": "dxc-copilot-main",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Requêtes API / s",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{job=\"dxc-backend\"}[5m])) by (handler)",
+          "legendFormat": "{{handler}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Taux d'erreurs 5xx",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1 } },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{job=\"dxc-backend\", status=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"dxc-backend\"}[5m]))",
+          "legendFormat": "erreurs 5xx"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Latence API P50 / P95 / P99",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{job=\"dxc-backend\"}[5m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"dxc-backend\"}[5m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job=\"dxc-backend\"}[5m])) by (le))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Routage RAG (par heure)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(increase(dxc_rag_routing_total[1h])) by (routing)",
+          "legendFormat": "{{routing}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Latence récupération RAG P95",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(dxc_rag_latency_seconds_bucket[10m])) by (le))",
+          "legendFormat": "p95 RAG"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Erreurs LLM (15 min)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(increase(dxc_llm_errors_total[15m])) by (provider, kind)",
+          "legendFormat": "{{provider}} {{kind}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Cache sémantique — hits cumulés",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 16 },
+      "targets": [
+        { "expr": "sum(dxc_semantic_cache_hits_total)", "legendFormat": "hits" }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Intents classifiés (24h)",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "expr": "sum(increase(dxc_intent_total[24h])) by (intent)",
+          "legendFormat": "{{intent}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Logs backend (erreurs)",
+      "type": "logs",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "expr": "{container=\"dxc-copilot-backend\"} |= `ERROR`"
+        }
+      ]
+    }
+  ]
+}

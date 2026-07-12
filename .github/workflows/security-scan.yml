@@ -5,13 +5,31 @@ on:
     - cron: '0 3 * * 1'   # Every Monday at 03:00 UTC
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
+  secret-scan:
+    name: 🔑 Secret Scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so leaks in old commits are caught
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   dependency-audit:
     name: 🔒 Dependency Audit
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -23,23 +41,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: npm audit
-        run: npm audit --audit-level=critical || true
+      - name: npm audit (critical = blocking)
+        run: npm audit --audit-level=critical
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: pip audit (report only)
+        run: |
+          pip install pip-audit
+          pip-audit -r backend/requirements.txt --strict --desc || true
 
   docker-scan:
     name: 🐳 Docker Image Scan (Trivy)
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-
+    if: github.event_name != 'pull_request'
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build image for scanning
+      - name: Build frontend image for scanning
         run: docker build -t dxc-copilot:scan .
 
-      - name: Run Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@master
-        continue-on-error: true
+      - name: Trivy scan — report (HIGH+) to Security tab
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: 'dxc-copilot:scan'
           format: 'sarif'
@@ -50,3 +75,12 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
+
+      - name: Trivy scan — CRITICAL vulnerabilities are blocking
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: 'dxc-copilot:scan'
+          format: 'table'
+          severity: 'CRITICAL'
+          exit-code: '1'
+          ignore-unfixed: true

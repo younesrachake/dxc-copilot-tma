@@ -34,8 +34,12 @@ export class SettingsComponent implements OnInit {
     theme: 'dark',
     notifications: true,
     autoSave: true,
-    fontSize: 'medium'
+    fontSize: 'medium',
+    syncFrequency: 'weekly'
   };
+
+  agentLastRun = '';
+  agentNextRun = '';
 
   tabs = [
     { id: 'profile', label: 'Profil', icon: '👤' },
@@ -55,6 +59,19 @@ export class SettingsComponent implements OnInit {
         this.userProfile.department = user.department || '';
       }
     });
+    this.api.getAgentStatus().subscribe({
+      next: (s) => {
+        this.preferences.syncFrequency = s.frequency || 'weekly';
+        this.agentLastRun = this.formatAgentDate(s.last_run);
+        this.agentNextRun = this.formatAgentDate(s.next_run);
+      }
+    });
+  }
+
+  private formatAgentDate(iso: string | null): string {
+    if (!iso) { return ''; }
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? '' : d.toLocaleString('fr-FR');
   }
 
   selectTab(tabId: string): void {
@@ -80,8 +97,18 @@ export class SettingsComponent implements OnInit {
   savePreferences(): void {
     const t = this.preferences.theme;
     this.themeService.setTheme(t === 'dark' ? 'dark' : 'light');
-    this.feedback = 'Préférences sauvegardées.';
-    setTimeout(() => this.feedback = '', 3000);
+    this.api.setAgentFrequency(this.preferences.syncFrequency).subscribe({
+      next: (s) => {
+        this.agentLastRun = this.formatAgentDate(s.last_run);
+        this.agentNextRun = this.formatAgentDate(s.next_run);
+        this.feedback = 'Préférences sauvegardées.';
+        setTimeout(() => this.feedback = '', 3000);
+      },
+      error: (err) => {
+        this.feedback = 'Erreur: ' + err.message;
+        setTimeout(() => this.feedback = '', 4000);
+      }
+    });
   }
 
   regenerateApiKey(): void {

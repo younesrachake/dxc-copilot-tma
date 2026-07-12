@@ -5,7 +5,7 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 import { Subscription } from 'rxjs';
 import { ThemeService } from '../services/theme.service';
 import { ChatStoreService } from '../services/chat-store.service';
-import { ApiService } from '../services/api.service';
+import { ApiService, ConversationSearchHit } from '../services/api.service';
 import { SessionExpiryService } from '../services/session-expiry.service';
 
 interface CmdItem {
@@ -34,6 +34,12 @@ export class LayoutComponent implements OnInit, OnDestroy {
   history: any[] = [];
   renamingChatId: any = null;
   renamingChatName = '';
+
+  // ── Semantic conversation search ────────────────────────────────
+  searchQuery = '';
+  searchResults: ConversationSearchHit[] = [];
+  searching = false;
+  private searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
   // ── Command Palette ─────────────────────────────────────────────
   showCmdPalette = false;
@@ -117,6 +123,44 @@ export class LayoutComponent implements OnInit, OnDestroy {
         // Sessions unavailable — user will see empty state in sidebar
       }
     });
+  }
+
+  // ── Semantic conversation search ────────────────────────────────
+  onSearchChange(): void {
+    if (this.searchDebounce) clearTimeout(this.searchDebounce);
+    const q = this.searchQuery.trim();
+    if (!q) {
+      this.searchResults = [];
+      this.searching = false;
+      return;
+    }
+    this.searching = true;
+    this.searchDebounce = setTimeout(() => {
+      this.api.searchConversations(q).subscribe({
+        next: (res) => {
+          this.searchResults = res.results || [];
+          this.searching = false;
+        },
+        error: () => {
+          this.searchResults = [];
+          this.searching = false;
+        }
+      });
+    }, 350);
+  }
+
+  openSearchResult(hit: ConversationSearchHit): void {
+    this.activeChatId = hit.session_id as any;
+    this.chatStore.selectBackendSession(hit.session_id);
+    this.router.navigate(['/chat']);
+    this.clearSearch();
+  }
+
+  clearSearch(): void {
+    this.searchQuery = '';
+    this.searchResults = [];
+    this.searching = false;
+    if (this.searchDebounce) { clearTimeout(this.searchDebounce); this.searchDebounce = null; }
   }
 
   dismissSessionWarning(): void {

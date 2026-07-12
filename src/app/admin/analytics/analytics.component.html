@@ -141,4 +141,92 @@
     </div>
   </div>
 
+  <!-- ══════════════════════════════════════
+       AI INSIGHTS (embeddings + clustering)
+  ══════════════════════════════════════ -->
+  <div class="rag-section insights-section">
+    <div class="insights-header">
+      <h2>🤖 IA Insights — Analyse sémantique</h2>
+      <button class="btn btn-outline" (click)="loadInsights(true)"
+              [disabled]="gapsLoading || clustersLoading">
+        <span>🔄</span> Recalculer
+      </button>
+    </div>
+    <div class="insight-message" *ngIf="insightMessage">{{ insightMessage }}</div>
+
+    <!-- Knowledge gaps -->
+    <div class="insight-block">
+      <h3>📉 Lacunes de la base de connaissances</h3>
+      <p class="insight-hint">Questions récurrentes auxquelles la KB n'a pas su répondre (scores faibles ou feedback négatif, 30 derniers jours).</p>
+      <div *ngIf="gapsLoading" class="rag-loading">Analyse en cours...</div>
+      <div *ngIf="!gapsLoading && gaps?.clusters?.length" class="insight-cards">
+        <div class="insight-card" *ngFor="let c of gaps.clusters">
+          <div class="insight-card-title">{{ c.title }}</div>
+          <div class="insight-card-count">{{ c.count }} question(s)</div>
+          <div class="insight-card-example" *ngFor="let e of c.examples | slice:0:3">« {{ e }} »</div>
+        </div>
+      </div>
+      <div *ngIf="!gapsLoading && !gaps?.clusters?.length" class="rag-empty">
+        Aucune lacune détectée ({{ gaps?.analyzed_queries || 0 }} requête(s) analysée(s)).
+      </div>
+    </div>
+
+    <!-- Incident clusters -->
+    <div class="insight-block">
+      <h3>🔥 Thèmes d'incidents récurrents</h3>
+      <p class="insight-hint">Regroupement sémantique des messages d'incidents (au-delà des compteurs RG2 par mot-clé).</p>
+      <div *ngIf="clustersLoading" class="rag-loading">Analyse en cours...</div>
+      <div *ngIf="!clustersLoading && clusters?.clusters?.length" class="insight-cards">
+        <div class="insight-card incident" *ngFor="let c of clusters.clusters">
+          <div class="insight-card-title">{{ c.title }}</div>
+          <div class="insight-card-count">{{ c.count }} signalement(s)</div>
+          <div class="insight-card-example" *ngFor="let e of c.examples | slice:0:3">« {{ e }} »</div>
+          <div class="insight-card-dates" *ngIf="c.first_seen">
+            {{ c.first_seen | slice:0:10 }} → {{ c.last_seen | slice:0:10 }}
+          </div>
+        </div>
+      </div>
+      <div *ngIf="!clustersLoading && !clusters?.clusters?.length" class="rag-empty">
+        Aucun thème récurrent détecté ({{ clusters?.analyzed_messages || 0 }} message(s) analysé(s)).
+      </div>
+    </div>
+
+    <!-- Routing thresholds -->
+    <div class="insight-block">
+      <h3>🎚️ Seuils de routage RAG</h3>
+      <p class="insight-hint">Seuils de confiance appris depuis les retours utilisateurs (jamais appliqués automatiquement).</p>
+      <div *ngIf="thresholdsLoading" class="rag-loading">Chargement...</div>
+      <div *ngIf="!thresholdsLoading && thresholds" class="thresholds-panel">
+        <div class="threshold-current">
+          <span class="threshold-label">Actuels :</span>
+          <span class="threshold-value">t_low = {{ thresholds.current?.t_low }}</span>
+          <span class="threshold-value">t_high = {{ thresholds.current?.t_high }}</span>
+          <span class="threshold-value">reranker : {{ thresholds.current?.reranker_enabled ? 'ON' : 'OFF' }}</span>
+          <span class="threshold-value">cache : {{ thresholds.current?.cache_enabled ? 'ON' : 'OFF' }}</span>
+        </div>
+        <div class="threshold-reco" *ngIf="thresholds.recommendation?.status === 'ok'">
+          <span class="threshold-label">Recommandés :</span>
+          <span class="threshold-value reco">t_low = {{ thresholds.recommendation.recommended_t_low }}</span>
+          <span class="threshold-value reco">t_high = {{ thresholds.recommendation.recommended_t_high }}</span>
+          <span class="threshold-detail">
+            (taux positif estimé {{ thresholds.recommendation.expected_positive_rate | percent:'1.0-1' }}
+            vs {{ thresholds.recommendation.current_positive_rate | percent:'1.0-1' }} actuel,
+            {{ thresholds.recommendation.rated_rows }} avis)
+          </span>
+          <button class="btn btn-primary" (click)="applyRecommendedThresholds()"
+                  [disabled]="applyingThresholds">
+            {{ applyingThresholds ? 'Application...' : 'Appliquer' }}
+          </button>
+        </div>
+        <div class="threshold-reco insufficient" *ngIf="thresholds.recommendation?.status === 'insufficient_data'">
+          Données insuffisantes pour une recommandation
+          ({{ thresholds.recommendation.rated_rows }}/{{ thresholds.recommendation.required_rows }} avis nécessaires).
+        </div>
+        <div class="threshold-reco insufficient" *ngIf="!thresholds.recommendation">
+          Aucune recommandation disponible — cliquez sur « Recalculer ».
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>

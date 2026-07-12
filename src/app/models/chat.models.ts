@@ -20,7 +20,7 @@ export interface TerminalCmd {
 export interface JiraTicketDraft {
   summary: string;
   description: string;
-  type: 'Bug' | 'Tâche' | 'Histoire';
+  type: 'Bug' | 'Tâche' | 'Histoire' | 'Incident';
   priority: 'Critique' | 'Haute' | 'Moyenne' | 'Basse';
   project: string;
   assignee: string;
@@ -56,4 +56,7 @@ export interface ChatMessage {
   jiraTooltipOpen?: boolean;
   savedAsDocument?: boolean;
   sources?: string[];  // KB source IDs used to generate this response
+  citations?: { index: number; source: string }[];  // [n] markers → KB sources
+  grounded?: boolean | null;  // evaluator verdict: reply supported by KB excerpts
+  cached?: boolean;           // served from the semantic cache
 }
