@@ -16,7 +16,7 @@ RUN npm run build -- --configuration production
 # ─────────────────────────────────────────────────────────────
 # Stage 2 — Serve with Nginx (distroless-like, no shell)
 # ─────────────────────────────────────────────────────────────
-FROM nginx:1.25-alpine AS runtime
+FROM nginx:1.31-alpine AS runtime
 
 # Remove default nginx static assets
 RUN rm -rf /usr/share/nginx/html/*
