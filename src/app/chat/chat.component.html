@@ -9,27 +9,27 @@
     <header class="chat-header">
       <div class="header-left">
         <img class="brand-logo-img" src="assets/images/dxc-logo.png" alt="DXC Technology" />
-        <div>
+        <div class="header-title">
           <h2>DXC Copilot</h2>
-          <span class="online-dot">● En ligne</span>
+          <span class="online-dot"><span class="dot"></span> En ligne</span>
         </div>
       </div>
       <div class="header-right">
-        <button class="btn btn-outline attach-btn" (click)="attachFile()" title="Joindre un fichier">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-          </svg>
+        <button class="icon-btn" (click)="attachFile()" title="Joindre un fichier">
+          <app-icon name="paperclip" [size]="17" />
         </button>
         <button class="canvas-toggle-btn"
                 [class.active]="canvasOpen"
                 (click)="toggleCanvas()"
                 [disabled]="!activeArtifact"
                 title="Ouvrir le Canvas">
-          <span class="canvas-icon">⬜</span>
+          <app-icon name="code" [size]="15" />
           <span>Canvas</span>
           <span class="canvas-badge" *ngIf="activeArtifact">1</span>
         </button>
-        <button class="btn btn-outline" (click)="openSettings()" title="Paramètres">⚙️</button>
+        <button class="icon-btn" (click)="openSettings()" title="Paramètres">
+          <app-icon name="settings" [size]="17" />
+        </button>
       </div>
     </header>
 
@@ -37,30 +37,28 @@
     <div class="messages-container">
 
       <!-- ═══════════════════════════════════════
-           WELCOME SCREEN (blank BONJOUR state)
+           WELCOME SCREEN
       ═══════════════════════════════════════ -->
       <div class="welcome-screen" *ngIf="showWelcome">
 
-        <!-- Live ambient background — disappears with the welcome screen -->
+        <!-- Ambient: signature glow + slow brand orbs -->
         <div class="ambient-bg" aria-hidden="true">
+          <div class="glow"></div>
           <div class="orb orb-1"></div>
           <div class="orb orb-2"></div>
           <div class="orb orb-3"></div>
-          <div class="orb orb-4"></div>
-          <div class="orb orb-5"></div>
-          <div class="orb orb-6"></div>
         </div>
 
         <div class="welcome-body">
-          <div class="welcome-greeting">
-            <span class="welcome-wave">👋</span>
-            <h1>Bonjour</h1>
+          <div class="welcome-mark">
+            <app-icon name="sparkles" [size]="26" />
           </div>
-          <p class="welcome-subtitle">Comment puis-je vous aider aujourd'hui ?</p>
+          <h1 class="welcome-title">Comment puis-je vous aider&nbsp;?</h1>
+          <p class="welcome-subtitle">Diagnostic d'incidents, procédures TMA, scripts, tickets Jira.</p>
           <div class="suggestion-grid">
             <button class="suggestion-card" *ngFor="let s of suggestions"
                     (click)="useSuggestion(s.text)" [disabled]="isLoading">
-              <span class="suggestion-icon">{{ s.icon }}</span>
+              <span class="suggestion-icon"><app-icon [name]="s.iconName" [size]="17" /></span>
               <span class="suggestion-text">{{ s.text }}</span>
             </button>
           </div>
@@ -76,8 +74,8 @@
 
           <!-- Avatar -->
           <div class="message-avatar">
-            <div *ngIf="message.sender === 'bot'" class="bot-avatar">🤖</div>
-            <div *ngIf="message.sender === 'user'" class="user-avatar">👤</div>
+            <div *ngIf="message.sender === 'bot'" class="bot-avatar"><app-icon name="sparkles" [size]="14" /></div>
+            <div *ngIf="message.sender === 'user'" class="user-avatar"><app-icon name="user" [size]="14" /></div>
           </div>
 
           <!-- Bubble + attachments -->
@@ -93,7 +91,7 @@
               <div class="msg-attach-chip" *ngFor="let a of message.attachments">
                 <img *ngIf="a.kind === 'image' && a.preview" [src]="a.preview" class="msg-thumb" alt="" />
                 <span *ngIf="a.kind !== 'image'" class="msg-attach-icon">
-                  {{ a.kind === 'audio' ? '🎵' : '📄' }}
+                  <app-icon [name]="a.kind === 'audio' ? 'mic' : 'file-text'" [size]="13" />
                 </span>
                 <span class="msg-attach-name">{{ a.name }}</span>
                 <span class="msg-attach-kind"
@@ -108,14 +106,9 @@
             <!-- ── Artifact Badge ── -->
             <div class="artifact-badge" *ngIf="message.artifact"
                  (click)="openArtifact(message.artifact!)">
-              <span class="artifact-icon">
-                <span *ngIf="message.artifact.type === 'python'">🐍</span>
-                <span *ngIf="message.artifact.type === 'bash'">💻</span>
-                <span *ngIf="message.artifact.type === 'typescript'">📘</span>
-                <span *ngIf="message.artifact.type === 'json' || message.artifact.type === 'yaml' || message.artifact.type === 'config' || message.artifact.type === 'text'">📄</span>
-              </span>
+              <span class="artifact-icon"><app-icon name="code" [size]="15" /></span>
               <span class="artifact-filename">{{ message.artifact.title }}</span>
-              <span class="artifact-corrected" *ngIf="message.artifact.corrected">✅ Appris</span>
+              <span class="artifact-corrected" *ngIf="message.artifact.corrected"><app-icon name="check" [size]="11" /> Appris</span>
               <span class="artifact-open-hint">Ouvrir dans Canvas ↗</span>
             </div>
 
@@ -123,7 +116,7 @@
             <div class="inline-action-row" *ngIf="message.terminalCmds && message.terminalCmds.length">
               <button class="inline-action-btn terminal-trigger"
                       (click)="openTerminalDrawer(message.terminalCmds!)">
-                <span class="ia-icon">💻</span>
+                <span class="ia-icon"><app-icon name="terminal" [size]="15" /></span>
                 <span class="ia-label">{{ message.terminalCmds!.length }} commande{{ message.terminalCmds!.length > 1 ? 's' : '' }} terminal</span>
                 <span class="ia-arrow">→</span>
               </button>
@@ -134,7 +127,7 @@
               <button class="inline-action-btn jira-trigger"
                       *ngIf="message.jiraTicket.status === 'draft' || message.jiraTicket.status === 'sending'"
                       (click)="openJiraModal(message.jiraTicket!, message.id)">
-                <span class="ia-icon">🎫</span>
+                <span class="ia-icon"><app-icon name="ticket" [size]="15" /></span>
                 <span class="ia-label">Créer un ticket Jira</span>
                 <span class="ia-badge">Brouillon prêt</span>
                 <span class="ia-arrow">→</span>
@@ -144,15 +137,17 @@
                 <button class="ticket-badge"
                         (click)="toggleJiraTooltip(message)"
                         [class.active]="message.jiraTooltipOpen">
-                  🎫 {{ message.jiraTicket.ticketResult?.key || (message.jiraTicket.project + '-????') }} <span class="tb-check">✅</span>
+                  <app-icon name="ticket" [size]="13" />
+                  {{ message.jiraTicket.ticketResult?.key || (message.jiraTicket.project + '-????') }}
+                  <span class="tb-check"><app-icon name="check" [size]="12" /></span>
                 </button>
                 <div class="ticket-tooltip" *ngIf="message.jiraTooltipOpen">
                   <div class="tt-row"><span class="tt-label">Référence</span><span class="tt-value tt-key">{{ message.jiraTicket.ticketResult?.key }}</span></div>
                   <div class="tt-row"><span class="tt-label">Résumé</span><span class="tt-value">{{ message.jiraTicket.summary | slice:0:60 }}{{ message.jiraTicket.summary.length > 60 ? '…' : '' }}</span></div>
-                  <div class="tt-row"><span class="tt-label">Statut</span><span class="tt-value tt-status">🔄 {{ message.jiraTicket.ticketResult?.status || 'En cours d\'analyse' }}</span></div>
+                  <div class="tt-row"><span class="tt-label">Statut</span><span class="tt-value tt-status">{{ message.jiraTicket.ticketResult?.status || 'En cours d\'analyse' }}</span></div>
                   <div class="tt-row"><span class="tt-label">Priorité</span><span class="tt-value tt-priority" [attr.data-priority]="message.jiraTicket.priority">{{ message.jiraTicket.priority }}</span></div>
                   <div class="tt-row"><span class="tt-label">Projet</span><span class="tt-value">{{ message.jiraTicket.project }}</span></div>
-                  <a class="tt-link" [href]="message.jiraTicket.ticketResult?.url" target="_blank">🔗 Ouvrir dans {{ integrationManager.getAdapterName() }}</a>
+                  <a class="tt-link" [href]="message.jiraTicket.ticketResult?.url" target="_blank">Ouvrir dans {{ integrationManager.getAdapterName() }} ↗</a>
                 </div>
               </div>
             </div>
@@ -160,7 +155,7 @@
             <!-- ── RG2 Guide Card ── -->
             <div class="guide-card" *ngIf="message.guideCard">
               <div class="guide-card-header">
-                <span class="guide-icon">📘</span>
+                <span class="guide-icon"><app-icon name="file-search" [size]="17" /></span>
                 <div class="guide-text">
                   <strong>Guide de résolution généré automatiquement</strong>
                   <span>Ce type d'incident (<code>{{ message.guideCard.incidentType }}</code>) a été soumis <strong>{{ message.guideCard.occurrences }} fois</strong>. Un guide standard a été généré.</span>
@@ -168,14 +163,14 @@
               </div>
               <div class="guide-actions">
                 <button class="guide-download-btn" (click)="downloadGuide(message.guideCard!)">
-                  ⬇️ Télécharger le guide en PDF
+                  <app-icon name="download" [size]="14" /> Télécharger le guide en PDF
                 </button>
               </div>
             </div>
 
             <!-- ── KB Source Attribution ── -->
             <div class="msg-sources" *ngIf="message.sources && message.sources.length">
-              <span class="source-label">📚 Sources KB :</span>
+              <span class="source-label"><app-icon name="database" [size]="12" /> Sources KB</span>
               <span class="source-tag" *ngFor="let s of message.sources">{{ s }}</span>
             </div>
 
@@ -190,11 +185,11 @@
             <!-- ── AI quality badges ── -->
             <div class="msg-quality-badges" *ngIf="message.sender === 'bot' && (message.grounded !== undefined || message.cached)">
               <span class="quality-badge grounded" *ngIf="message.grounded === true"
-                    title="Réponse vérifiée par rapport à la base de connaissances">✔ Vérifié KB</span>
+                    title="Réponse vérifiée par rapport à la base de connaissances"><app-icon name="check" [size]="11" /> Vérifié KB</span>
               <span class="quality-badge ungrounded" *ngIf="message.grounded === false"
-                    title="La réponse n'a pas pu être vérifiée par rapport à la base de connaissances">⚠ Non vérifié</span>
+                    title="La réponse n'a pas pu être vérifiée par rapport à la base de connaissances"><app-icon name="triangle-alert" [size]="11" /> Non vérifié</span>
               <span class="quality-badge cached" *ngIf="message.cached"
-                    title="Réponse instantanée depuis le cache sémantique">⚡ Cache</span>
+                    title="Réponse instantanée depuis le cache sémantique"><app-icon name="zap" [size]="11" /> Cache</span>
             </div>
 
             <!-- Timestamp -->
@@ -204,9 +199,9 @@
             <div class="feedback-row" *ngIf="message.sender === 'bot'">
               <button class="fb-btn" [class.active-up]="message.feedback === 'up'"
                       [class.thumbs-flash]="thumbsUpFlash.has(message.id)"
-                      (click)="giveFeedback(message, 'up')" title="Bonne réponse">👍</button>
+                      (click)="giveFeedback(message, 'up')" title="Bonne réponse"><app-icon name="thumbs-up" [size]="14" /></button>
               <button class="fb-btn" [class.active-down]="message.feedback === 'down'"
-                      (click)="giveFeedback(message, 'down')" title="Mauvaise réponse">👎</button>
+                      (click)="giveFeedback(message, 'down')" title="Mauvaise réponse"><app-icon name="thumbs-down" [size]="14" /></button>
               <span class="fb-label up" *ngIf="message.feedback === 'up'">Merci !</span>
               <span class="fb-label down" *ngIf="message.feedback === 'down'">Signalé</span>
               <!-- Save as document button -->
@@ -215,7 +210,7 @@
                       [class.saved]="message.savedAsDocument"
                       (click)="saveAsDocument(message)"
                       [title]="message.savedAsDocument ? 'Déjà sauvegardé dans Documents' : 'Sauvegarder comme guide d\'incident'">
-                {{ message.savedAsDocument ? '📋' : '📄' }}
+                <app-icon [name]="message.savedAsDocument ? 'check' : 'file-text'" [size]="14" />
               </button>
               <span class="fb-label saved-doc" *ngIf="message.savedAsDocument">Sauvegardé</span>
             </div>
@@ -225,7 +220,7 @@
 
         <!-- Loading — Dynamic text loader -->
         <div *ngIf="isLoading" class="message bot-message">
-          <div class="message-avatar"><div class="bot-avatar">🤖</div></div>
+          <div class="message-avatar"><div class="bot-avatar"><app-icon name="sparkles" [size]="14" /></div></div>
           <div class="message-content">
             <div class="shimmer-skeleton">
               <div class="loading-status-text">{{ loadingText }}</div>
@@ -252,20 +247,20 @@
     <!-- Error / Success notification banner -->
     <div class="error-notification" *ngIf="errorNotification"
          [class.success-notif]="errorNotification.startsWith('✅')">
-      <span class="err-icon">{{ errorNotification.startsWith('✅') ? '' : '⚠️' }}</span>
+      <span class="err-icon"><app-icon [name]="errorNotification.startsWith('✅') ? 'check' : 'triangle-alert'" [size]="15" /></span>
       <span>{{ errorNotification }}</span>
-      <button class="err-close" (click)="errorNotification = null">✕</button>
+      <button class="err-close" (click)="errorNotification = null"><app-icon name="x" [size]="14" /></button>
     </div>
 
     <!-- Persistent Guide Card Banner (survives chat switches) -->
     <div class="persistent-guide-banner" *ngIf="persistentGuideCard">
-      <span class="guide-banner-icon">📘</span>
+      <span class="guide-banner-icon"><app-icon name="file-search" [size]="17" /></span>
       <div class="guide-banner-text">
         <strong>Guide généré — {{ persistentGuideCard.incidentType }}</strong>
         <span>{{ persistentGuideCard.occurrences }} occurrences détectées. Un guide de résolution est disponible.</span>
       </div>
-      <button class="guide-banner-download" (click)="downloadGuide(persistentGuideCard!)">⬇️ Télécharger</button>
-      <button class="guide-banner-close" (click)="dismissGuideCard()">✕</button>
+      <button class="guide-banner-download" (click)="downloadGuide(persistentGuideCard!)"><app-icon name="download" [size]="13" /> Télécharger</button>
+      <button class="guide-banner-close" (click)="dismissGuideCard()"><app-icon name="x" [size]="14" /></button>
     </div>
 
     <!-- Input Area -->
@@ -275,11 +270,11 @@
       <div class="attachment-bar" *ngIf="attachments.length > 0">
         <div class="attach-chip" *ngFor="let f of attachments; let i = index">
           <img *ngIf="f.kind === 'image' && f.preview" [src]="f.preview" class="chip-thumb" alt="" />
-          <span class="chip-icon" *ngIf="f.kind === 'audio'">🎵</span>
-          <span class="chip-icon" *ngIf="f.kind === 'document'">📄</span>
+          <span class="chip-icon" *ngIf="f.kind === 'audio'"><app-icon name="mic" [size]="13" /></span>
+          <span class="chip-icon" *ngIf="f.kind === 'document'"><app-icon name="file-text" [size]="13" /></span>
           <span class="chip-name">{{ f.name }}</span>
           <span class="chip-size">{{ formatSize(f.size) }}</span>
-          <button class="chip-remove" (click)="removeAttachment(i)">✕</button>
+          <button class="chip-remove" (click)="removeAttachment(i)"><app-icon name="x" [size]="12" /></button>
         </div>
         <span class="attach-total">Total : {{ formatSize(totalAttachmentsSize) }}</span>
       </div>
@@ -292,30 +287,25 @@
                   [disabled]="isLoading"
                   class="message-input"></textarea>
         <div class="input-actions">
-          <button class="btn btn-outline attach-btn" (click)="attachFile()" title="Joindre image ou document (PNG, JPEG, PDF, TXT)" [disabled]="isLoading">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-            </svg>
+          <button class="composer-btn" (click)="attachFile()" title="Joindre image ou document (PNG, JPEG, PDF, TXT)" [disabled]="isLoading">
+            <app-icon name="paperclip" [size]="17" />
           </button>
-          <button class="btn btn-outline attach-btn mic-btn"
+          <button class="composer-btn mic-btn"
                   [class.recording]="isRecording"
                   (click)="toggleMicrophone()"
                   [title]="isRecording ? 'Arrêter l\'enregistrement' : 'Enregistrer un message vocal en français'"
                   [disabled]="isLoading">
             <span class="rec-dot" *ngIf="isRecording"></span>
-            <svg *ngIf="!isRecording" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-              <line x1="12" y1="19" x2="12" y2="23"/>
-              <line x1="8" y1="23" x2="16" y2="23"/>
-            </svg>
-            <svg *ngIf="isRecording" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-            </svg>
+            <app-icon *ngIf="!isRecording" name="mic" [size]="17" />
+            <app-icon *ngIf="isRecording" name="circle-stop" [size]="17" />
           </button>
-          <button class="btn btn-danger cancel-btn" *ngIf="isLoading" (click)="cancelStream()" title="Arrêter la génération">■ Stop</button>
-          <button class="btn btn-primary" *ngIf="!isLoading" (click)="sendMessage()"
-                  [disabled]="!newMessage.trim() && attachments.length === 0">➤</button>
+          <button class="composer-btn cancel-btn" *ngIf="isLoading" (click)="cancelStream()" title="Arrêter la génération">
+            <app-icon name="circle-stop" [size]="17" />
+          </button>
+          <button class="send-btn" *ngIf="!isLoading" (click)="sendMessage()"
+                  [disabled]="!newMessage.trim() && attachments.length === 0" title="Envoyer">
+            <app-icon name="send" [size]="16" />
+          </button>
         </div>
       </div>
       <div class="input-footer">
@@ -341,12 +331,12 @@
         </div>
         <div class="canvas-actions">
           <button class="ca-btn" (click)="copyArtifact()" title="Copier le code">
-            {{ copied ? '✅ Copié' : '📋 Copier' }}
+            <app-icon [name]="copied ? 'check' : 'copy'" [size]="14" /> {{ copied ? 'Copié' : 'Copier' }}
           </button>
           <button class="ca-btn" (click)="toggleEditArtifact()" title="Modifier">
-            {{ activeArtifact.editMode ? '👁 Lecture' : '✏️ Modifier' }}
+            <app-icon [name]="activeArtifact.editMode ? 'eye' : 'pencil'" [size]="14" /> {{ activeArtifact.editMode ? 'Lecture' : 'Modifier' }}
           </button>
-          <button class="ca-btn close" (click)="closeCanvas()" title="Fermer">✕</button>
+          <button class="ca-btn close" (click)="closeCanvas()" title="Fermer"><app-icon name="x" [size]="15" /></button>
         </div>
       </div>
 
@@ -361,9 +351,9 @@
 
       <!-- Canvas Footer -->
       <div class="canvas-footer" *ngIf="activeArtifact.editMode">
-        <button class="cf-btn save" (click)="saveArtifactEdit()">💾 Sauvegarder</button>
+        <button class="cf-btn save" (click)="saveArtifactEdit()"><app-icon name="check" [size]="14" /> Sauvegarder</button>
         <button class="cf-btn learn" (click)="learnFromCorrection()" title="Envoyer la correction à la base vectorielle">
-          🧠 Apprendre de cette correction
+          <app-icon name="sparkles" [size]="14" /> Apprendre de cette correction
         </button>
       </div>
 
@@ -384,7 +374,7 @@
       <span class="t-dot green"></span>
       <span class="drawer-title">Terminal — prod-server-01</span>
     </div>
-    <button class="drawer-close" (click)="closeTerminalDrawer()">✕</button>
+    <button class="drawer-close" (click)="closeTerminalDrawer()"><app-icon name="x" [size]="15" /></button>
   </div>
   <div class="drawer-body">
     <div *ngFor="let cmd of drawerCmds" class="terminal-cmd-row">
@@ -399,9 +389,9 @@
                 [disabled]="cmd.status === 'running' || cmd.status === 'success'"
                 (click)="executeCommand(cmd)">
           <span *ngIf="cmd.status === 'idle'">▶ Exécuter</span>
-          <span *ngIf="cmd.status === 'running'">⏳ En cours...</span>
-          <span *ngIf="cmd.status === 'success'">✅ OK</span>
-          <span *ngIf="cmd.status === 'error'">❌ Erreur</span>
+          <span *ngIf="cmd.status === 'running'">En cours...</span>
+          <span *ngIf="cmd.status === 'success'">OK</span>
+          <span *ngIf="cmd.status === 'error'">Erreur</span>
         </button>
       </div>
       <div class="cmd-output" *ngIf="getTerminalLines(cmd).length > 0">
@@ -420,11 +410,11 @@
   <div class="jira-modal" (click)="$event.stopPropagation()">
     <div class="jira-modal-header">
       <div class="jira-modal-title-row">
-        <span class="jira-logo">J</span>
+        <span class="jira-logo"><app-icon name="ticket" [size]="15" /></span>
         <span class="jira-modal-title">Créer un ticket Jira</span>
-        <span class="jira-draft-badge">📝 Brouillon</span>
+        <span class="jira-draft-badge">Brouillon</span>
       </div>
-      <button class="drawer-close" (click)="closeJiraModal()">✕</button>
+      <button class="drawer-close" (click)="closeJiraModal()"><app-icon name="x" [size]="15" /></button>
     </div>
     <div class="jira-modal-body" *ngIf="jiraModalTicket">
       <div class="jira-field">
@@ -464,7 +454,7 @@
       <button class="fm-btn submit"
               [class.jira-success-flash]="jiraModalMsgId !== null && jiraSuccess.has(jiraModalMsgId)"
               (click)="confirmJiraModal()">
-        ✅ Confirmer et créer le ticket
+        <app-icon name="check" [size]="14" /> Confirmer et créer le ticket
       </button>
     </div>
   </div>
@@ -476,8 +466,8 @@
 <div class="modal-overlay" *ngIf="showFeedbackModal" (click)="closeFeedbackModal()">
   <div class="feedback-modal" (click)="$event.stopPropagation()">
     <div class="fm-header">
-      <h3>👎 Qu'est-ce qui n'allait pas ?</h3>
-      <button class="fm-close" (click)="closeFeedbackModal()">✕</button>
+      <h3><app-icon name="thumbs-down" [size]="16" /> Qu'est-ce qui n'allait pas ?</h3>
+      <button class="fm-close" (click)="closeFeedbackModal()"><app-icon name="x" [size]="15" /></button>
     </div>
     <div class="fm-body">
       <div class="fb-options">

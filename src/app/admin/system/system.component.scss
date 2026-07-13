@@ -19,7 +19,7 @@
 
     h1 {
       font-size: 1.75rem;
-      color: var(--dxc-black);
+      color: var(--dxc-var(--ink-1));
       margin: 0;
     }
   }
@@ -31,7 +31,7 @@
 }
 
 .info-section {
-  background: var(--dxc-white);
+  background: var(--dxc-var(--bg-surface));
   padding: 24px;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -39,7 +39,7 @@
 
   h2 {
     font-size: 1.25rem;
-    color: var(--dxc-black);
+    color: var(--dxc-var(--ink-1));
     margin-bottom: 20px;
   }
 
@@ -63,7 +63,7 @@
       .info-value {
         font-size: 1.1rem;
         font-weight: 600;
-        color: var(--dxc-black);
+        color: var(--dxc-var(--ink-1));
       }
 
       .status-indicator {
@@ -82,14 +82,14 @@
 }
 
 .services-section {
-  background: var(--dxc-white);
+  background: var(--dxc-var(--bg-surface));
   padding: 24px;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 
   h2 {
     font-size: 1.25rem;
-    color: var(--dxc-black);
+    color: var(--dxc-var(--ink-1));
     margin-bottom: 20px;
   }
 
@@ -118,7 +118,7 @@
 
           .service-name {
             font-weight: 600;
-            color: var(--dxc-black);
+            color: var(--dxc-var(--ink-1));
             font-size: 1.05rem;
           }
 
@@ -128,10 +128,10 @@
             font-size: 0.8rem;
             font-weight: 600;
             background-color: var(--dxc-medium-gray);
-            color: var(--dxc-white);
+            color: var(--dxc-var(--bg-surface));
 
             &.running    { background-color: var(--dxc-success); }
-            &.restarting { background-color: #F59E0B; animation: pulse 1s infinite; }
+            &.restarting { background-color: var(--warn); animation: pulse 1s infinite; }
           }
         }
 
@@ -234,7 +234,7 @@
   height: 100vh;
   width: 520px;
   max-width: 95vw;
-  background: var(--dxc-white);
+  background: var(--dxc-var(--bg-surface));
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.18);
   z-index: 201;
   display: flex;
@@ -267,7 +267,7 @@
     h2 {
       font-size: 1.15rem;
       font-weight: 700;
-      color: var(--dxc-black);
+      color: var(--dxc-var(--ink-1));
       margin: 0 0 2px;
     }
 
@@ -290,7 +290,7 @@
 
     &:hover {
       background: var(--dxc-light-gray);
-      color: var(--dxc-black);
+      color: var(--dxc-var(--ink-1));
     }
   }
 }
@@ -338,7 +338,7 @@
   label {
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--dxc-black);
+    color: var(--dxc-var(--ink-1));
   }
 
   input[type="text"],
@@ -349,8 +349,8 @@
     border: 1px solid var(--dxc-border);
     border-radius: 8px;
     font-size: 0.88rem;
-    color: var(--dxc-black);
-    background: var(--dxc-white);
+    color: var(--dxc-var(--ink-1));
+    background: var(--dxc-var(--bg-surface));
     transition: border-color 0.15s, box-shadow 0.15s;
     outline: none;
 
@@ -370,7 +370,7 @@
   span {
     font-size: 0.88rem;
     font-weight: 600;
-    color: var(--dxc-black);
+    color: var(--dxc-var(--ink-1));
   }
 }
 
@@ -397,7 +397,7 @@
       width: 18px;
       left: 3px;
       bottom: 3px;
-      background: #fff;
+      background: var(--bg-surface);
       border-radius: 50%;
       transition: transform 0.2s;
       box-shadow: 0 1px 4px rgba(0,0,0,0.2);
@@ -447,14 +447,14 @@
 
   &.btn-primary {
     background: var(--dxc-purple);
-    color: #fff;
+    color: var(--bg-surface);
     &:hover { background: var(--dxc-purple-dark, #5B21B6); }
   }
 
   &.btn-outline {
     background: transparent;
     border: 1.5px solid var(--dxc-border);
-    color: var(--dxc-black);
+    color: var(--dxc-var(--ink-1));
     &:hover { background: var(--dxc-light-gray); }
   }
 }

@@ -8,7 +8,7 @@
 }
 
 .settings-container {
-  background-color: var(--dxc-white);
+  background-color: var(--dxc-var(--bg-surface));
   width: 100%;
   max-width: 900px;
   height: 600px;
@@ -35,7 +35,7 @@
 
 .settings-header h2 {
   font-size: 1.2rem;
-  color: var(--dxc-black);
+  color: var(--dxc-var(--ink-1));
   display: flex;
   align-items: center;
   gap: 10px;
@@ -69,7 +69,7 @@
 
 .nav-item.active {
   background-color: var(--dxc-purple);
-  color: var(--dxc-white);
+  color: var(--dxc-var(--bg-surface));
   font-weight: 600;
 }
 
@@ -82,7 +82,7 @@
 
 /* ── Override global dark-input styles for this light card ── */
 .settings-form .input-group label {
-  color: #6B7280;
+  color: var(--ink-3);
   font-size: 0.78rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -92,15 +92,15 @@
 .settings-form .input-group input,
 .settings-form .input-group textarea,
 .settings-form .input-group select {
-  background: var(--dxc-light-gray, #F9FAFB);
-  border: 1.5px solid var(--dxc-border, #E5E7EB);
-  color: var(--dxc-dark-gray, #1A1A1A);
+  background: var(--dxc-light-gray, var(--bg-app));
+  border: 1.5px solid var(--dxc-border, var(--border-1));
+  color: var(--dxc-dark-gray, var(--ink-1));
   border-radius: 8px;
   font-size: 0.9rem;
 
   &:focus {
-    border-color: #7C3AED;
-    background: var(--dxc-white, #fff);
+    border-color: var(--accent-ink);
+    background: var(--dxc-var(--bg-surface), var(--bg-surface));
     box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
   }
 }
@@ -115,7 +115,7 @@
 
 .tab-content h3 {
   font-size: 1.5rem;
-  color: var(--dxc-black);
+  color: var(--dxc-var(--ink-1));
   margin-bottom: 30px;
   border-bottom: 2px solid var(--dxc-purple);
   padding-bottom: 10px;

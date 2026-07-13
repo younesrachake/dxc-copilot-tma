@@ -1,213 +1,209 @@
 <div class="analytics-container">
-  <header class="analytics-header">
-    <div class="header-left">
+  <header class="page-header">
+    <div class="header-left-row">
       <button class="btn btn-outline" (click)="goBack()">
-        <span>←</span> Retour
+        <app-icon name="arrow-left" [size]="14" /> Retour
       </button>
-      <h1>📈 Analytics</h1>
+      <div>
+        <div class="ph-title">Analytics</div>
+        <p class="ph-subtitle">Usage, pipeline RAG et insights IA</p>
+      </div>
     </div>
-    <div class="header-right">
+    <div class="ph-actions">
       <button class="btn btn-outline" (click)="refreshData()">
-        <span>🔄</span> Actualiser
+        <app-icon name="refresh-cw" [size]="14" /> Actualiser
       </button>
       <button class="btn btn-primary" (click)="exportData()">
-        <span>📥</span> Exporter
+        <app-icon name="download" [size]="14" /> Exporter
       </button>
     </div>
   </header>
 
-  <!-- Metrics Cards -->
-  <div class="metrics-grid">
-    <div *ngFor="let metric of metrics" class="metric-card">
-      <div class="metric-label">{{ metric.label }}</div>
-      <div class="metric-value">{{ metric.value }}</div>
-      <div class="metric-change" [class.positive]="metric.trend === 'up'" [class.negative]="metric.trend === 'down'">
-        <span>{{ metric.change }}</span>
-        <span class="period">{{ metric.period }}</span>
+  <!-- Metrics KPI row -->
+  <div class="stats-grid">
+    <div *ngFor="let metric of metrics" class="stat-tile">
+      <span class="st-label">{{ metric.label }}</span>
+      <span class="st-value">{{ metric.value }}</span>
+      <span class="st-hint" [class.trend-up]="metric.trend === 'up'" [class.trend-down]="metric.trend === 'down'">
+        {{ metric.change }} <span class="period">{{ metric.period }}</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- Monthly evolution — column chart (single series → no legend box) -->
+  <div class="card chart-section">
+    <div class="section-header"><h2>Évolution mensuelle — requêtes</h2></div>
+    <div class="column-chart" *ngIf="chartData.length">
+      <div class="col-grid" aria-hidden="true">
+        <div class="grid-line" *ngFor="let g of [0,1,2,3]"></div>
+      </div>
+      <div class="col-slots">
+        <div *ngFor="let data of chartData; let last = last" class="col-slot">
+          <div class="col-mark-wrap">
+            <span class="col-value" [class.always]="last">{{ formatK(data.requests) }}</span>
+            <div class="col-mark" [style.height.%]="colHeight(data.requests)"></div>
+          </div>
+          <span class="col-label">{{ data.month }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="empty-state" *ngIf="!chartData.length">Aucune donnée</div>
+  </div>
+
+  <div class="two-col">
+    <!-- Top features — horizontal bars, value at tip -->
+    <div class="card">
+      <div class="section-header"><h2>Fonctionnalités les plus utilisées</h2></div>
+      <div class="hbar-list">
+        <div *ngFor="let feature of topFeatures" class="hbar-row">
+          <span class="hbar-name">{{ feature.name }}</span>
+          <div class="hbar-track">
+            <div class="hbar-mark" [style.width.%]="feature.percentage"></div>
+          </div>
+          <span class="hbar-value">{{ feature.usage }}%</span>
+        </div>
+        <div class="empty-state" *ngIf="!topFeatures.length">Aucune donnée</div>
+      </div>
+    </div>
+
+    <!-- RAG KPIs -->
+    <div class="card" *ngIf="ragStats">
+      <div class="section-header"><h2>Pipeline RAG</h2></div>
+      <div class="rag-kpis">
+        <div class="rag-kpi">
+          <span class="rk-value">{{ ragStats.total_queries | number }}</span>
+          <span class="rk-label">Requêtes totales</span>
+        </div>
+        <div class="rag-kpi">
+          <span class="rk-value accent">{{ ragStats.kb_hit_rate | percent:'1.0-1' }}</span>
+          <span class="rk-label">Couverture KB</span>
+        </div>
+        <div class="rag-kpi">
+          <span class="rk-value">{{ ragStats.avg_top_score | number:'1.2-2' }}</span>
+          <span class="rk-label">Score moyen</span>
+        </div>
+        <div class="rag-kpi">
+          <span class="rk-value">{{ ragStats.avg_latency_ms }}<small> ms</small></span>
+          <span class="rk-label">Latence RAG</span>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Chart Placeholder -->
-  <div class="chart-section">
-    <h2>Évolution mensuelle</h2>
-    <div class="chart-placeholder">
-      <div class="chart-bars">
-        <div *ngFor="let data of chartData" class="chart-bar-group">
-          <div class="chart-bar" [style.height.%]="(data.requests / getMaxRequests()) * 100">
-            <span class="bar-label">{{ data.requests / 1000 }}k</span>
-          </div>
-          <div class="month-label">{{ data.month }}</div>
-        </div>
+  <!-- RAG routing — horizontal stacked bar + legend -->
+  <div class="card" *ngIf="ragStats && routingTotal() > 0">
+    <div class="section-header">
+      <h2>Répartition du routage</h2>
+      <span class="badge badge--neutral">{{ routingTotal() | number }} requêtes</span>
+    </div>
+    <div class="routing-block">
+      <div class="stacked-bar" role="img"
+           [attr.aria-label]="'KB primaire ' + ragStats.routing_breakdown.kb_primary + ', KB indice ' + ragStats.routing_breakdown.kb_hint + ', LLM seul ' + ragStats.routing_breakdown.groq_only">
+        <div class="seg seg-1" *ngIf="ragStats.routing_breakdown.kb_primary > 0"
+             [style.flex-grow]="routingShare(ragStats.routing_breakdown.kb_primary)"
+             [title]="'KB primaire — ' + ragStats.routing_breakdown.kb_primary"></div>
+        <div class="seg seg-2" *ngIf="ragStats.routing_breakdown.kb_hint > 0"
+             [style.flex-grow]="routingShare(ragStats.routing_breakdown.kb_hint)"
+             [title]="'KB indice — ' + ragStats.routing_breakdown.kb_hint"></div>
+        <div class="seg seg-3" *ngIf="ragStats.routing_breakdown.groq_only > 0"
+             [style.flex-grow]="routingShare(ragStats.routing_breakdown.groq_only)"
+             [title]="'LLM seul — ' + ragStats.routing_breakdown.groq_only"></div>
+      </div>
+      <div class="chart-legend">
+        <span class="legend-item"><i class="swatch s-1"></i> KB primaire <b>{{ ragStats.routing_breakdown.kb_primary }}</b> <small>score ≥ seuil haut</small></span>
+        <span class="legend-item"><i class="swatch s-2"></i> KB indice <b>{{ ragStats.routing_breakdown.kb_hint }}</b> <small>zone intermédiaire</small></span>
+        <span class="legend-item"><i class="swatch s-3"></i> LLM seul <b>{{ ragStats.routing_breakdown.groq_only }}</b> <small>score &lt; seuil bas</small></span>
       </div>
     </div>
   </div>
 
-  <!-- Top Features -->
-  <div class="features-section">
-    <h2>Fonctionnalités les plus utilisées</h2>
-    <div class="features-list">
-      <div *ngFor="let feature of topFeatures" class="feature-item">
-        <div class="feature-info">
-          <span class="feature-name">{{ feature.name }}</span>
-          <span class="feature-usage">{{ feature.usage }}%</span>
+  <!-- Top retrieved documents -->
+  <div class="card" *ngIf="ragStats && ragStats.top_docs.length">
+    <div class="section-header"><h2>Documents KB les plus récupérés</h2></div>
+    <div class="hbar-list">
+      <div *ngFor="let doc of ragStats.top_docs; let i = index" class="hbar-row">
+        <span class="hbar-rank">#{{ i + 1 }}</span>
+        <span class="hbar-name mono">{{ doc.doc_id }}</span>
+        <div class="hbar-track">
+          <div class="hbar-mark" [style.width.%]="(doc.count / (ragStats.top_docs[0].count || 1)) * 100"></div>
         </div>
-        <div class="progress-bar">
-          <div class="progress-fill" [style.width.%]="feature.percentage"></div>
-        </div>
+        <span class="hbar-value">{{ doc.count }}</span>
       </div>
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════
-       RAG PIPELINE ANALYTICS (real data)
-  ══════════════════════════════════════ -->
-  <div class="rag-section">
-    <h2>🧠 Pipeline RAG — Métriques de Récupération</h2>
-
-    <div *ngIf="ragLoading" class="rag-loading">Chargement des métriques RAG...</div>
-
-    <div *ngIf="!ragLoading && ragStats">
-
-      <!-- KPI cards -->
-      <div class="rag-kpi-row">
-        <div class="rag-kpi-card">
-          <div class="rag-kpi-value">{{ ragStats.total_queries | number }}</div>
-          <div class="rag-kpi-label">Requêtes totales</div>
-        </div>
-        <div class="rag-kpi-card highlight">
-          <div class="rag-kpi-value">{{ ragStats.kb_hit_rate | percent:'1.0-1' }}</div>
-          <div class="rag-kpi-label">Taux de couverture KB</div>
-        </div>
-        <div class="rag-kpi-card">
-          <div class="rag-kpi-value">{{ ragStats.avg_top_score | number:'1.2-2' }}</div>
-          <div class="rag-kpi-label">Score moyen (0–1)</div>
-        </div>
-        <div class="rag-kpi-card">
-          <div class="rag-kpi-value">{{ ragStats.avg_latency_ms }} ms</div>
-          <div class="rag-kpi-label">Latence RAG moyenne</div>
-        </div>
-      </div>
-
-      <!-- Routing breakdown chart -->
-      <div class="rag-routing-section">
-        <h3>Répartition du routage (Dense+BM25 → RRF)</h3>
-        <div class="rag-routing-bars">
-          <div class="rag-routing-bar-group">
-            <div class="rag-routing-bar kb-primary"
-                 [style.height.%]="routingBarHeight(ragStats.routing_breakdown.kb_primary)">
-              <span class="rag-bar-value">{{ ragStats.routing_breakdown.kb_primary }}</span>
-            </div>
-            <div class="rag-routing-label">KB Primaire<br><small>score ≥ 0.75</small></div>
-          </div>
-          <div class="rag-routing-bar-group">
-            <div class="rag-routing-bar kb-hint"
-                 [style.height.%]="routingBarHeight(ragStats.routing_breakdown.kb_hint)">
-              <span class="rag-bar-value">{{ ragStats.routing_breakdown.kb_hint }}</span>
-            </div>
-            <div class="rag-routing-label">KB Indice<br><small>0.35–0.75</small></div>
-          </div>
-          <div class="rag-routing-bar-group">
-            <div class="rag-routing-bar groq-only"
-                 [style.height.%]="routingBarHeight(ragStats.routing_breakdown.groq_only)">
-              <span class="rag-bar-value">{{ ragStats.routing_breakdown.groq_only }}</span>
-            </div>
-            <div class="rag-routing-label">Groq seul<br><small>score &lt; 0.35</small></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Top retrieved documents -->
-      <div class="rag-top-docs" *ngIf="ragStats.top_docs.length">
-        <h3>Documents KB les plus récupérés</h3>
-        <div class="rag-doc-list">
-          <div *ngFor="let doc of ragStats.top_docs; let i = index" class="rag-doc-item">
-            <span class="rag-doc-rank">#{{ i + 1 }}</span>
-            <span class="rag-doc-id">{{ doc.doc_id }}</span>
-            <div class="rag-doc-bar-wrap">
-              <div class="rag-doc-bar"
-                   [style.width.%]="(doc.count / (ragStats.top_docs[0]?.count || 1)) * 100">
-              </div>
-            </div>
-            <span class="rag-doc-count">{{ doc.count }}</span>
-          </div>
-        </div>
-      </div>
-
-    </div>
-
-    <div *ngIf="!ragLoading && !ragStats" class="rag-empty">
-      Aucune donnée RAG disponible. Envoyez des messages dans le chat pour générer des métriques.
-    </div>
+  <div class="rag-loading" *ngIf="ragLoading">Chargement des métriques RAG…</div>
+  <div class="empty-state" *ngIf="!ragLoading && !ragStats">
+    Aucune donnée RAG disponible. Envoyez des messages dans le chat pour générer des métriques.
   </div>
 
   <!-- ══════════════════════════════════════
        AI INSIGHTS (embeddings + clustering)
   ══════════════════════════════════════ -->
-  <div class="rag-section insights-section">
+  <div class="insights-section">
     <div class="insights-header">
-      <h2>🤖 IA Insights — Analyse sémantique</h2>
+      <h2><app-icon name="sparkles" [size]="16" /> IA Insights — Analyse sémantique</h2>
       <button class="btn btn-outline" (click)="loadInsights(true)"
               [disabled]="gapsLoading || clustersLoading">
-        <span>🔄</span> Recalculer
+        <app-icon name="refresh-cw" [size]="13" /> Recalculer
       </button>
     </div>
     <div class="insight-message" *ngIf="insightMessage">{{ insightMessage }}</div>
 
     <!-- Knowledge gaps -->
     <div class="insight-block">
-      <h3>📉 Lacunes de la base de connaissances</h3>
+      <h3>Lacunes de la base de connaissances</h3>
       <p class="insight-hint">Questions récurrentes auxquelles la KB n'a pas su répondre (scores faibles ou feedback négatif, 30 derniers jours).</p>
-      <div *ngIf="gapsLoading" class="rag-loading">Analyse en cours...</div>
+      <div *ngIf="gapsLoading" class="rag-loading">Analyse en cours…</div>
       <div *ngIf="!gapsLoading && gaps?.clusters?.length" class="insight-cards">
-        <div class="insight-card" *ngFor="let c of gaps.clusters">
+        <div class="card insight-card" *ngFor="let c of gaps.clusters">
           <div class="insight-card-title">{{ c.title }}</div>
-          <div class="insight-card-count">{{ c.count }} question(s)</div>
+          <span class="badge badge--accent">{{ c.count }} question(s)</span>
           <div class="insight-card-example" *ngFor="let e of c.examples | slice:0:3">« {{ e }} »</div>
         </div>
       </div>
-      <div *ngIf="!gapsLoading && !gaps?.clusters?.length" class="rag-empty">
+      <div *ngIf="!gapsLoading && !gaps?.clusters?.length" class="empty-state">
         Aucune lacune détectée ({{ gaps?.analyzed_queries || 0 }} requête(s) analysée(s)).
       </div>
     </div>
 
     <!-- Incident clusters -->
     <div class="insight-block">
-      <h3>🔥 Thèmes d'incidents récurrents</h3>
+      <h3>Thèmes d'incidents récurrents</h3>
       <p class="insight-hint">Regroupement sémantique des messages d'incidents (au-delà des compteurs RG2 par mot-clé).</p>
-      <div *ngIf="clustersLoading" class="rag-loading">Analyse en cours...</div>
+      <div *ngIf="clustersLoading" class="rag-loading">Analyse en cours…</div>
       <div *ngIf="!clustersLoading && clusters?.clusters?.length" class="insight-cards">
-        <div class="insight-card incident" *ngFor="let c of clusters.clusters">
+        <div class="card insight-card incident" *ngFor="let c of clusters.clusters">
           <div class="insight-card-title">{{ c.title }}</div>
-          <div class="insight-card-count">{{ c.count }} signalement(s)</div>
+          <span class="badge badge--danger">{{ c.count }} signalement(s)</span>
           <div class="insight-card-example" *ngFor="let e of c.examples | slice:0:3">« {{ e }} »</div>
           <div class="insight-card-dates" *ngIf="c.first_seen">
             {{ c.first_seen | slice:0:10 }} → {{ c.last_seen | slice:0:10 }}
           </div>
         </div>
       </div>
-      <div *ngIf="!clustersLoading && !clusters?.clusters?.length" class="rag-empty">
+      <div *ngIf="!clustersLoading && !clusters?.clusters?.length" class="empty-state">
         Aucun thème récurrent détecté ({{ clusters?.analyzed_messages || 0 }} message(s) analysé(s)).
       </div>
     </div>
 
     <!-- Routing thresholds -->
     <div class="insight-block">
-      <h3>🎚️ Seuils de routage RAG</h3>
+      <h3>Seuils de routage RAG</h3>
       <p class="insight-hint">Seuils de confiance appris depuis les retours utilisateurs (jamais appliqués automatiquement).</p>
-      <div *ngIf="thresholdsLoading" class="rag-loading">Chargement...</div>
+      <div *ngIf="thresholdsLoading" class="rag-loading">Chargement…</div>
       <div *ngIf="!thresholdsLoading && thresholds" class="thresholds-panel">
-        <div class="threshold-current">
-          <span class="threshold-label">Actuels :</span>
-          <span class="threshold-value">t_low = {{ thresholds.current?.t_low }}</span>
-          <span class="threshold-value">t_high = {{ thresholds.current?.t_high }}</span>
-          <span class="threshold-value">reranker : {{ thresholds.current?.reranker_enabled ? 'ON' : 'OFF' }}</span>
-          <span class="threshold-value">cache : {{ thresholds.current?.cache_enabled ? 'ON' : 'OFF' }}</span>
+        <div class="card threshold-row">
+          <span class="threshold-label">Actuels</span>
+          <span class="badge badge--neutral mono">t_low = {{ thresholds.current?.t_low }}</span>
+          <span class="badge badge--neutral mono">t_high = {{ thresholds.current?.t_high }}</span>
+          <span class="badge" [class.badge--ok]="thresholds.current?.reranker_enabled" [class.badge--neutral]="!thresholds.current?.reranker_enabled">reranker {{ thresholds.current?.reranker_enabled ? 'ON' : 'OFF' }}</span>
+          <span class="badge" [class.badge--ok]="thresholds.current?.cache_enabled" [class.badge--neutral]="!thresholds.current?.cache_enabled">cache {{ thresholds.current?.cache_enabled ? 'ON' : 'OFF' }}</span>
         </div>
-        <div class="threshold-reco" *ngIf="thresholds.recommendation?.status === 'ok'">
-          <span class="threshold-label">Recommandés :</span>
-          <span class="threshold-value reco">t_low = {{ thresholds.recommendation.recommended_t_low }}</span>
-          <span class="threshold-value reco">t_high = {{ thresholds.recommendation.recommended_t_high }}</span>
+        <div class="card threshold-row" *ngIf="thresholds.recommendation?.status === 'ok'">
+          <span class="threshold-label">Recommandés</span>
+          <span class="badge badge--ok mono">t_low = {{ thresholds.recommendation.recommended_t_low }}</span>
+          <span class="badge badge--ok mono">t_high = {{ thresholds.recommendation.recommended_t_high }}</span>
           <span class="threshold-detail">
             (taux positif estimé {{ thresholds.recommendation.expected_positive_rate | percent:'1.0-1' }}
             vs {{ thresholds.recommendation.current_positive_rate | percent:'1.0-1' }} actuel,
@@ -215,14 +211,14 @@
           </span>
           <button class="btn btn-primary" (click)="applyRecommendedThresholds()"
                   [disabled]="applyingThresholds">
-            {{ applyingThresholds ? 'Application...' : 'Appliquer' }}
+            {{ applyingThresholds ? 'Application…' : 'Appliquer' }}
           </button>
         </div>
-        <div class="threshold-reco insufficient" *ngIf="thresholds.recommendation?.status === 'insufficient_data'">
+        <div class="card threshold-row muted" *ngIf="thresholds.recommendation?.status === 'insufficient_data'">
           Données insuffisantes pour une recommandation
           ({{ thresholds.recommendation.rated_rows }}/{{ thresholds.recommendation.required_rows }} avis nécessaires).
         </div>
-        <div class="threshold-reco insufficient" *ngIf="!thresholds.recommendation">
+        <div class="card threshold-row muted" *ngIf="!thresholds.recommendation">
           Aucune recommandation disponible — cliquez sur « Recalculer ».
         </div>
       </div>

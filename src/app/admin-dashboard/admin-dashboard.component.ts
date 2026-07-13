@@ -2,20 +2,21 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../services/api.service';
+import { IconComponent } from '../shared/icon.component';
 
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, IconComponent],
   templateUrl: './admin-dashboard.component.html',
   styleUrls: ['./admin-dashboard.component.scss']
 })
 export class AdminDashboardComponent implements OnInit {
   stats = [
-    { label: 'Utilisateurs actifs',   value: '—', icon: '👥', accent: 'purple' },
-    { label: 'Sessions aujourd\'hui', value: '—', icon: '⚡', accent: 'blue'   },
-    { label: 'Messages totaux',       value: '—', icon: '💬', accent: 'green'  },
-    { label: 'Incidents détectés',    value: '—', icon: '🔔', accent: 'orange' },
+    { label: 'Utilisateurs actifs',   value: '—', icon: 'users' },
+    { label: 'Sessions aujourd\'hui', value: '—', icon: 'zap' },
+    { label: 'Messages totaux',       value: '—', icon: 'message-circle' },
+    { label: 'Incidents détectés',    value: '—', icon: 'triangle-alert' },
   ];
 
   recentActivity: { user: string; action: string; time: string }[] = [];
@@ -25,10 +26,10 @@ export class AdminDashboardComponent implements OnInit {
   skeletonItems = [0, 1, 2, 3];
 
   readonly quickActions = [
-    { icon: '👥', gradient: 'gradient-purple', title: 'Gérer les utilisateurs', desc: 'Ajouter, modifier ou désactiver des comptes', action: () => this.manageUsers() },
-    { icon: '📊', gradient: 'gradient-blue',   title: 'Voir les rapports',       desc: 'Statistiques et analyses de performance',   action: () => this.viewReports() },
-    { icon: '⚙️', gradient: 'gradient-teal',   title: 'Configuration système',   desc: 'Paramètres globaux de l\'application',      action: () => this.configureSystem() },
-    { icon: '🔧', gradient: 'gradient-orange', title: 'Maintenance',             desc: 'Tâches planifiées et santé du système',     action: () => this.performMaintenance() },
+    { icon: 'users',    title: 'Gérer les utilisateurs', desc: 'Ajouter, modifier ou désactiver des comptes', action: () => this.manageUsers() },
+    { icon: 'file-text', title: 'Voir les rapports',      desc: 'Statistiques et analyses de performance',    action: () => this.viewReports() },
+    { icon: 'settings', title: 'Configuration système',   desc: 'Paramètres globaux de l\'application',       action: () => this.configureSystem() },
+    { icon: 'wrench',   title: 'Maintenance',             desc: 'Tâches planifiées et santé du système',      action: () => this.performMaintenance() },
   ];
 
   constructor(private router: Router, private api: ApiService) {}
@@ -43,10 +44,10 @@ export class AdminDashboardComponent implements OnInit {
     this.api.getDashboardStats().subscribe({
       next: (data) => {
         this.stats = [
-          { label: 'Utilisateurs actifs',   value: String(data.total_users),           icon: '👥', accent: 'purple' },
-          { label: 'Sessions aujourd\'hui', value: String(data.active_sessions_today), icon: '⚡', accent: 'blue'   },
-          { label: 'Messages totaux',       value: String(data.total_messages),         icon: '💬', accent: 'green'  },
-          { label: 'Incidents détectés',    value: String(data.total_incidents),        icon: '🔔', accent: 'orange' },
+          { label: 'Utilisateurs actifs',   value: String(data.total_users),           icon: 'users' },
+          { label: 'Sessions aujourd\'hui', value: String(data.active_sessions_today), icon: 'zap' },
+          { label: 'Messages totaux',       value: String(data.total_messages),        icon: 'message-circle' },
+          { label: 'Incidents détectés',    value: String(data.total_incidents),       icon: 'triangle-alert' },
         ];
         this.recentActivity = (data.recent_activity || []).map((a: any) => ({
           user:   a.user,

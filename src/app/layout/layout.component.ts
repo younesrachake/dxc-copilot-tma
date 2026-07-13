@@ -1,12 +1,14 @@
 import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
 import { ThemeService } from '../services/theme.service';
 import { ChatStoreService } from '../services/chat-store.service';
 import { ApiService, ConversationSearchHit } from '../services/api.service';
 import { SessionExpiryService } from '../services/session-expiry.service';
+import { IconComponent } from '../shared/icon.component';
 
 interface CmdItem {
   icon: string;
@@ -19,7 +21,7 @@ interface CmdItem {
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [NgFor, NgIf, FormsModule, RouterLink, RouterLinkActive, RouterOutlet, IconComponent],
   templateUrl: './layout.component.html',
   styleUrls: ['./layout.component.scss']
 })
@@ -29,7 +31,21 @@ export class LayoutComponent implements OnInit, OnDestroy {
   activeChatId: number | null = 1;
   showSessionWarning = false;
   isAdmin = false;
+  /** True on /admin/** — the single sidebar switches to admin navigation */
+  isAdminArea = false;
   private expirySubscription: Subscription | null = null;
+  private routerSubscription: Subscription | null = null;
+
+  readonly adminNav = [
+    { path: '/admin/dashboard',   icon: 'layout-dashboard', label: 'Tableau de bord' },
+    { path: '/admin/users',       icon: 'users',            label: 'Utilisateurs' },
+    { path: '/admin/analytics',   icon: 'bar-chart-3',      label: 'Analytics' },
+    { path: '/admin/system',      icon: 'server',           label: 'Système' },
+    { path: '/admin/logs',        icon: 'scroll-text',      label: 'Logs' },
+    { path: '/admin/reports',     icon: 'file-text',        label: 'Rapports' },
+    { path: '/admin/maintenance', icon: 'wrench',           label: 'Maintenance' },
+    { path: '/admin/settings',    icon: 'settings',         label: 'Paramètres' },
+  ];
 
   history: any[] = [];
   renamingChatId: any = null;
@@ -82,9 +98,15 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.expirySubscription?.unsubscribe();
+    this.routerSubscription?.unsubscribe();
   }
 
   ngOnInit(): void {
+    this.isAdminArea = this.router.url.startsWith('/admin');
+    this.routerSubscription = this.router.events
+      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe(e => { this.isAdminArea = e.urlAfterRedirects.startsWith('/admin'); });
+
     this.expirySubscription = this.sessionExpiry.showWarning$.subscribe(
       v => { this.showSessionWarning = v; }
     );

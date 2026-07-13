@@ -7,11 +7,12 @@ import { ChatStoreService } from '../services/chat-store.service';
 import { ApiService } from '../services/api.service';
 import { DocumentStoreService } from '../services/document-store.service';
 import { Artifact, TerminalCmd, JiraTicketDraft, ChatMessage, AttachedFile, GuideCard } from '../models/chat.models';
+import { IconComponent } from '../shared/icon.component';
 
 @Component({
   selector: 'app-chat',
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule, DatePipe, SlicePipe],
+  imports: [NgFor, NgIf, FormsModule, DatePipe, SlicePipe, IconComponent],
   templateUrl: './chat.component.html',
   styleUrl: './chat.component.scss'
 })
@@ -25,10 +26,10 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
   showWelcome = true;
 
   readonly suggestions = [
-    { icon: '📊', text: 'Analyser les logs de l\'API Gateway et identifier les erreurs critiques.' },
-    { icon: '🐍', text: 'Écrire un script Python pour surveiller la consommation mémoire des serveurs.' },
-    { icon: '⚡', text: 'Comment redémarrer proprement le service nginx en production ?' },
-    { icon: '🎫', text: 'Créer un ticket Jira pour un incident critique sur l\'infrastructure.' }
+    { iconName: 'activity', text: 'Analyser les logs de l\'API Gateway et identifier les erreurs critiques.' },
+    { iconName: 'code',     text: 'Écrire un script Python pour surveiller la consommation mémoire des serveurs.' },
+    { iconName: 'zap',      text: 'Comment redémarrer proprement le service nginx en production ?' },
+    { iconName: 'ticket',   text: 'Créer un ticket Jira pour un incident critique sur l\'infrastructure.' }
   ];
 
   newMessage = '';

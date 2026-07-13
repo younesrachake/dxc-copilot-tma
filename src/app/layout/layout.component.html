@@ -6,137 +6,166 @@
 <div class="layout-container">
   <!-- Mobile Menu Toggle -->
   <button class="mobile-menu-toggle" (click)="toggleSidebar()" *ngIf="!isSidebarOpen">
-    <span>☰</span>
+    <app-icon name="chevron-right" [size]="20" />
   </button>
 
-  <!-- Sidebar -->
+  <!-- Sidebar (single, contextual: chat ⇄ admin) -->
   <aside class="sidebar" [class.open]="isSidebarOpen" [class.collapsed]="isCollapsed">
     <!-- Mobile Close Button -->
     <button class="mobile-close-btn" (click)="closeSidebar()" *ngIf="isSidebarOpen">
-      <span>✕</span>
+      <app-icon name="x" [size]="20" />
     </button>
 
     <div class="sidebar-top">
       <div class="brand">
         <img class="brand-logo-img" src="assets/images/dxc-logo.png" alt="DXC Technology" />
-        <span>DXC Copilot</span>
+        <span class="nav-text">DXC Copilot</span>
+        <span class="badge-admin nav-text" *ngIf="isAdminArea">ADMIN</span>
       </div>
 
-      <button class="new-chat-btn" (click)="newChat()">
-        <span class="nav-icon">+</span> <span class="nav-text">Nouveau chat</span>
-      </button>
+      <!-- ═══ CHAT MODE ═══ -->
+      <ng-container *ngIf="!isAdminArea">
+        <button class="new-chat-btn" (click)="newChat()">
+          <app-icon name="plus" [size]="16" /> <span class="nav-text">Nouveau chat</span>
+        </button>
 
-      <!-- Semantic conversation search -->
-      <div class="conv-search-row">
-        <span class="conv-search-icon">🔎</span>
-        <input class="conv-search-input"
-               type="text"
-               [(ngModel)]="searchQuery"
-               (ngModelChange)="onSearchChange()"
-               placeholder="Recherche sémantique..." />
-        <button class="conv-search-clear" *ngIf="searchQuery" (click)="clearSearch()">✕</button>
-      </div>
-
-      <!-- Search results (replace history while searching) -->
-      <div class="history-group" *ngIf="searchQuery">
-        <div class="history-title">
-          {{ searching ? 'Recherche…' : 'Résultats (' + searchResults.length + ')' }}
+        <!-- Semantic conversation search -->
+        <div class="conv-search-row">
+          <span class="conv-search-icon"><app-icon name="search" [size]="14" /></span>
+          <input class="conv-search-input"
+                 type="text"
+                 [(ngModel)]="searchQuery"
+                 (ngModelChange)="onSearchChange()"
+                 placeholder="Recherche sémantique..." />
+          <button class="conv-search-clear" *ngIf="searchQuery" (click)="clearSearch()">
+            <app-icon name="x" [size]="12" />
+          </button>
         </div>
-        <ul class="history-list">
-          <li *ngFor="let hit of searchResults"
-              class="history-item"
-              (click)="openSearchResult(hit)">
-            <div class="item-main-content">
-              <span class="item-topic">{{ hit.session_title || 'Conversation' }}</span>
-            </div>
-            <div class="conv-search-snippet">
-              <span class="conv-search-sender">{{ hit.sender === 'user' ? '👤' : '🤖' }}</span>
-              {{ hit.snippet.length > 90 ? hit.snippet.slice(0, 90) + '…' : hit.snippet }}
-            </div>
-          </li>
-          <li class="conv-search-empty" *ngIf="!searching && searchResults.length === 0">
-            Aucune conversation trouvée
-          </li>
-        </ul>
-      </div>
 
-      <!-- History List -->
-      <div class="history-group" *ngIf="!searchQuery">
-        <div class="history-title">Conversations</div>
-        <ul class="history-list">
-          <li *ngFor="let chat of history"
-              class="history-item"
-              [class.active]="chat.id === activeChatId"
-              (click)="navigateToChat(chat)">
-
-            <div class="item-main-content">
-              <span class="item-topic" *ngIf="renamingChatId !== chat.id">{{ chat.topic }}</span>
-              <span *ngIf="renamingChatId === chat.id" style="display:flex;gap:4px;align-items:center;flex:1" (click)="$event.stopPropagation()">
-                <input [(ngModel)]="renamingChatName" (keyup.enter)="saveRenameChat(chat)" (keyup.escape)="cancelRenameChat()" style="flex:1;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:0.8rem" />
-                <button class="btn-icon" (click)="saveRenameChat(chat)" title="Enregistrer">✓</button>
-                <button class="btn-icon" (click)="cancelRenameChat()" title="Annuler">✕</button>
-              </span>
-              <div class="item-meta">
-                <span class="item-time">{{ chat.time }}</span>
-                <button class="item-options-btn" (click)="toggleOptions($event, chat)">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 13C12.5523 13 13 12.5523 13 12C13 11.4477 12.5523 11 12 11C11.4477 11 11 11.4477 11 12C11 12.5523 11.4477 13 12 13Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M12 6C12.5523 6 13 5.55228 13 5C13 4.44772 12.5523 4 12 4C11.4477 4 11 4.44772 11 5C11 5.55228 11.4477 6 12 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M12 20C12.5523 20 13 19.5523 13 19C13 18.4477 12.5523 18 12 18C11.4477 18 11 18.4477 11 19C11 19.5523 11.4477 20 12 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                </button>
+        <!-- Search results (replace history while searching) -->
+        <div class="history-group" *ngIf="searchQuery">
+          <div class="history-title">
+            {{ searching ? 'Recherche…' : 'Résultats (' + searchResults.length + ')' }}
+          </div>
+          <ul class="history-list">
+            <li *ngFor="let hit of searchResults"
+                class="history-item"
+                (click)="openSearchResult(hit)">
+              <div class="item-main-content">
+                <span class="item-topic">{{ hit.session_title || 'Conversation' }}</span>
               </div>
-            </div>
+              <div class="conv-search-snippet">
+                <span class="conv-search-sender">
+                  <app-icon [name]="hit.sender === 'user' ? 'user' : 'sparkles'" [size]="11" />
+                </span>
+                {{ hit.snippet.length > 90 ? hit.snippet.slice(0, 90) + '…' : hit.snippet }}
+              </div>
+            </li>
+            <li class="conv-search-empty" *ngIf="!searching && searchResults.length === 0">
+              Aucune conversation trouvée
+            </li>
+          </ul>
+        </div>
 
-            <div class="item-footer" *ngIf="chat.pinned">
-              <span class="pinned-badge">📌 Épinglé</span>
-            </div>
+        <!-- History List -->
+        <div class="history-group" *ngIf="!searchQuery">
+          <div class="history-title">Conversations</div>
+          <ul class="history-list">
+            <li *ngFor="let chat of history"
+                class="history-item"
+                [class.active]="chat.id === activeChatId"
+                (click)="navigateToChat(chat)">
 
-            <!-- Options Menu -->
-            <div class="options-menu" *ngIf="chat.showOptions" (click)="$event.stopPropagation()">
-              <ul>
-                <li (click)="pinChat($event, chat)">{{ chat.pinned ? 'Désépingler' : 'Épingler' }}</li>
-                <li (click)="startRenameChat($event, chat)">Renommer</li>
-                <li (click)="shareChat($event, chat)">Partager</li>
-                <li (click)="saveChatAs($event, chat)">Sauvegarder sous...</li>
-                <li class="delete" (click)="deleteChat($event, chat)">Supprimer</li>
-              </ul>
-            </div>
+              <div class="item-main-content">
+                <span class="item-topic" *ngIf="renamingChatId !== chat.id">{{ chat.topic }}</span>
+                <span *ngIf="renamingChatId === chat.id" class="rename-row" (click)="$event.stopPropagation()">
+                  <input class="rename-input" [(ngModel)]="renamingChatName" (keyup.enter)="saveRenameChat(chat)" (keyup.escape)="cancelRenameChat()" />
+                  <button class="btn-icon" (click)="saveRenameChat(chat)" title="Enregistrer"><app-icon name="check" [size]="13" /></button>
+                  <button class="btn-icon" (click)="cancelRenameChat()" title="Annuler"><app-icon name="x" [size]="13" /></button>
+                </span>
+                <div class="item-meta">
+                  <span class="item-time">{{ chat.time }}</span>
+                  <button class="item-options-btn" (click)="toggleOptions($event, chat)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 13C12.5523 13 13 12.5523 13 12C13 11.4477 12.5523 11 12 11C11.4477 11 11 11.4477 11 12C11 12.5523 11.4477 13 12 13Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M12 6C12.5523 6 13 5.55228 13 5C13 4.44772 12.5523 4 12 4C11.4477 4 11 4.44772 11 5C11 5.55228 11.4477 6 12 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M12 20C12.5523 20 13 19.5523 13 19C13 18.4477 12.5523 18 12 18C11.4477 18 11 18.4477 11 19C11 19.5523 11.4477 20 12 20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="item-footer" *ngIf="chat.pinned">
+                <span class="pinned-badge"><app-icon name="pin" [size]="10" /> Épinglé</span>
+              </div>
+
+              <!-- Options Menu -->
+              <div class="options-menu" *ngIf="chat.showOptions" (click)="$event.stopPropagation()">
+                <ul>
+                  <li (click)="pinChat($event, chat)"><app-icon name="pin" [size]="14" /> {{ chat.pinned ? 'Désépingler' : 'Épingler' }}</li>
+                  <li (click)="startRenameChat($event, chat)"><app-icon name="pencil" [size]="14" /> Renommer</li>
+                  <li (click)="shareChat($event, chat)"><app-icon name="share-2" [size]="14" /> Partager</li>
+                  <li (click)="saveChatAs($event, chat)"><app-icon name="download" [size]="14" /> Sauvegarder sous...</li>
+                  <li class="delete" (click)="deleteChat($event, chat)"><app-icon name="trash-2" [size]="14" /> Supprimer</li>
+                </ul>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </ng-container>
+
+      <!-- ═══ ADMIN MODE ═══ -->
+      <ng-container *ngIf="isAdminArea">
+        <a class="back-to-chat" routerLink="/chat">
+          <app-icon name="arrow-left" [size]="15" />
+          <span class="nav-text">Retour au chat</span>
+        </a>
+
+        <div class="history-title nav-text">Administration</div>
+        <ul class="nav-list admin-nav">
+          <li class="nav-item" *ngFor="let item of adminNav"
+              [routerLink]="item.path" routerLinkActive="active">
+            <app-icon [name]="item.icon" [size]="16" />
+            <span class="nav-text">{{ item.label }}</span>
           </li>
         </ul>
-      </div>
+      </ng-container>
     </div>
 
     <div class="sidebar-bottom">
-      <ul class="nav-list">
+      <ul class="nav-list" *ngIf="!isAdminArea">
         <li class="nav-item" routerLink="/chat" routerLinkActive="active">
-          <span class="nav-icon">💬</span> <span class="nav-text">Chat</span>
+          <app-icon name="message-circle" [size]="16" /> <span class="nav-text">Chat</span>
         </li>
         <li class="nav-item" routerLink="/settings" routerLinkActive="active">
-          <span class="nav-icon">⚙️</span> <span class="nav-text">Paramètres</span>
+          <app-icon name="settings" [size]="16" /> <span class="nav-text">Paramètres</span>
         </li>
         <li class="nav-item" routerLink="/viewer" routerLinkActive="active">
-          <span class="nav-icon">📄</span> <span class="nav-text">Documents</span>
+          <app-icon name="file-text" [size]="16" /> <span class="nav-text">Documents</span>
         </li>
         <li class="nav-item" *ngIf="isAdmin" routerLink="/admin" routerLinkActive="active">
-          <span class="nav-icon">🔧</span> <span class="nav-text">Administration</span>
+          <app-icon name="shield" [size]="16" /> <span class="nav-text">Administration</span>
+        </li>
+      </ul>
+
+      <ul class="nav-list" *ngIf="isAdminArea">
+        <li class="nav-item" (click)="logout()">
+          <app-icon name="log-out" [size]="16" /> <span class="nav-text">Déconnexion</span>
         </li>
       </ul>
 
       <!-- Theme Toggle -->
       <div class="theme-toggle-row">
         <button class="theme-toggle-btn" (click)="toggleTheme()" [title]="isDark ? 'Passer en mode clair' : 'Passer en mode sombre'">
-          <span class="theme-icon">{{ isDark ? '☀️' : '🌙' }}</span>
+          <app-icon [name]="isDark ? 'sun' : 'moon'" [size]="15" />
           <span class="nav-text">{{ isDark ? 'Mode clair' : 'Mode sombre' }}</span>
-          <span class="theme-pill" [class.dark]="isDark">{{ isDark ? 'ON' : 'OFF' }}</span>
+          <span class="theme-pill nav-text" [class.dark]="isDark">{{ isDark ? 'ON' : 'OFF' }}</span>
         </button>
       </div>
 
       <div class="sidebar-collapse-toggle">
         <button class="collapse-btn" (click)="toggleCollapse()">
-          <svg class="collapse-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M15 19L8 12L15 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+          <app-icon name="chevron-left" [size]="16" class="collapse-icon" />
           <span class="nav-text">Réduire</span>
         </button>
       </div>
@@ -159,7 +188,7 @@
   <div class="cmd-palette" (click)="$event.stopPropagation()">
 
     <div class="cmd-search-row">
-      <span class="cmd-search-icon">🔍</span>
+      <span class="cmd-search-icon"><app-icon name="search" [size]="16" /></span>
       <input class="cmd-search-input"
              type="text"
              [(ngModel)]="cmdQuery"

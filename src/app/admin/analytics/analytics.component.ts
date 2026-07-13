@@ -2,11 +2,12 @@ import { Component, OnInit } from '@angular/core';
 import { NgFor, NgIf, DecimalPipe, PercentPipe, SlicePipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { ApiService, RagAnalyticsResponse } from '../../services/api.service';
+import { IconComponent } from '../../shared/icon.component';
 
 @Component({
   selector: 'app-analytics',
   standalone: true,
-  imports: [NgFor, NgIf, DecimalPipe, PercentPipe, SlicePipe],
+  imports: [NgFor, NgIf, DecimalPipe, PercentPipe, SlicePipe, IconComponent],
   templateUrl: './analytics.component.html',
   styleUrl: './analytics.component.scss'
 })
@@ -87,13 +88,30 @@ export class AnalyticsComponent implements OnInit {
     return Math.max(...this.chartData.map((d: any) => d.sessions || 0)) || 1;
   }
 
-  /** Bar height % for routing chart (kb_primary + kb_hint + groq_only) */
-  routingBarHeight(value: number): number {
+  /** Segment share (%) for the horizontal stacked routing bar */
+  routingShare(value: number): number {
     if (!this.ragStats) return 0;
     const total = this.ragStats.routing_breakdown.kb_primary
       + this.ragStats.routing_breakdown.kb_hint
       + this.ragStats.routing_breakdown.groq_only;
-    return total > 0 ? Math.round((value / total) * 100) : 0;
+    return total > 0 ? (value / total) * 100 : 0;
+  }
+
+  routingTotal(): number {
+    if (!this.ragStats) return 0;
+    const r = this.ragStats.routing_breakdown;
+    return r.kb_primary + r.kb_hint + r.groq_only;
+  }
+
+  /** Compact tick label: 12400 → "12,4k", 840 → "840", undefined → "0" */
+  formatK(value: number | undefined | null): string {
+    const v = value || 0;
+    return v >= 1000 ? (Math.round(v / 100) / 10).toLocaleString('fr-FR') + 'k' : String(v);
+  }
+
+  colHeight(value: number | undefined | null): number {
+    const max = this.getMaxRequests();
+    return max > 0 ? ((value || 0) / max) * 100 : 0;
   }
 
   goBack(): void {

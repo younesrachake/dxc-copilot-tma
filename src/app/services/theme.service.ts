@@ -2,11 +2,12 @@ import { Injectable } from '@angular/core';
 
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
-  private _isDark = false;
+  private _isDark = true;
 
   constructor() {
+    // Dark is the product default — light only when explicitly chosen
     const saved = localStorage.getItem('dxc-theme');
-    this._isDark = saved === 'dark';
+    this._isDark = saved !== 'light';
     this.apply();
   }
 
