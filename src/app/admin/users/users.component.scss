@@ -19,7 +19,7 @@
 
     h1 {
       font-size: 1.75rem;
-      color: var(--dxc-var(--ink-1));
+      color: var(--ink-1);
       margin: 0;
     }
   }
@@ -42,7 +42,7 @@
     position: relative;
     display: flex;
     align-items: center;
-    background: var(--dxc-var(--bg-surface));
+    background: var(--bg-surface);
     border: 1px solid var(--dxc-border);
     border-radius: 8px;
     padding: 12px 16px;
@@ -64,14 +64,14 @@
     padding: 12px 16px;
     border: 1px solid var(--dxc-border);
     border-radius: 8px;
-    background: var(--dxc-var(--bg-surface));
+    background: var(--bg-surface);
     font-size: 0.95rem;
     cursor: pointer;
   }
 }
 
 .users-table {
-  background: var(--dxc-var(--bg-surface));
+  background: var(--bg-surface);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -81,8 +81,8 @@
     border-collapse: collapse;
 
     thead {
-      background-color: var(--dxc-dark-gray);
-      color: var(--dxc-var(--bg-surface));
+        background: var(--bg-inset);
+        color: var(--ink-2);
 
       th {
         padding: 16px;
@@ -111,11 +111,11 @@
             font-size: 0.85rem;
             font-weight: 600;
             background-color: var(--dxc-light-gray);
-            color: var(--dxc-var(--ink-1));
+            color: var(--ink-1);
 
             &.badge-admin {
               background-color: var(--dxc-purple);
-              color: var(--dxc-var(--bg-surface));
+              color: var(--bg-surface);
             }
           }
 
@@ -125,7 +125,7 @@
             font-size: 0.85rem;
             font-weight: 600;
             background-color: var(--dxc-medium-gray);
-            color: var(--dxc-var(--bg-surface));
+            color: var(--bg-surface);
 
             &.status-active {
               background-color: var(--dxc-success);
