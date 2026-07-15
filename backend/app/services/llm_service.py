@@ -112,6 +112,7 @@ class LLMService:
         extra_instructions: Optional[str],
         t_low: float,
         t_high: float,
+        history: Optional[List[dict]] = None,
     ) -> Tuple[list, str, float]:
         """Shared prompt builder for blocking and streaming generation.
 
@@ -166,6 +167,13 @@ class LLMService:
         if extra_instructions:
             messages.append({"role": "system", "content": extra_instructions})
 
+        # Conversation memory: prior turns of this session (already truncated by caller)
+        for turn in (history or []):
+            role = turn.get("role")
+            content = (turn.get("content") or "").strip()
+            if role in ("user", "assistant") and content:
+                messages.append({"role": role, "content": content})
+
         messages.append({"role": "user", "content": sanitized})
         return messages, sanitized, top_score
 
@@ -182,11 +190,12 @@ class LLMService:
         timeout: float = 45.0,
         t_low: float = 0.35,
         t_high: float = 0.75,
+        history: Optional[List[dict]] = None,
     ) -> str:
         """Generate LLM response with RAG context, inline citations and timeout."""
         messages, sanitized, _top = self._build_messages(
             user_message, context_docs, context_scores, context_sources,
-            file_context, extra_instructions, t_low, t_high
+            file_context, extra_instructions, t_low, t_high, history
         )
 
         if not self._available or not self._client:
@@ -226,11 +235,12 @@ class LLMService:
         extra_instructions: Optional[str] = None,
         t_low: float = 0.35,
         t_high: float = 0.75,
+        history: Optional[List[dict]] = None,
     ) -> AsyncIterator[str]:
         """Stream the LLM response token by token (text deltas)."""
         messages, sanitized, _top = self._build_messages(
             user_message, context_docs, context_scores, context_sources,
-            file_context, extra_instructions, t_low, t_high
+            file_context, extra_instructions, t_low, t_high, history
         )
 
         if not self._available or not self._client:

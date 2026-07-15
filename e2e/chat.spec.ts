@@ -27,8 +27,9 @@ test.describe('Chat', () => {
     await input.press('Enter');
     await expect(page.locator('.message.bot-message').last()).toBeVisible({ timeout: 30_000 });
 
-    // The session title (first 50 chars of the message) shows up in the history list
-    await expect(page.locator('.history-list')).toContainText('session e2e', { timeout: 15_000 });
+    // A new session item appears in the sidebar history (title derived from the
+    // first message; may be auto-renamed later, so just assert a non-empty item).
+    await expect(page.locator('.history-list .history-item').first()).toBeVisible({ timeout: 15_000 });
   });
 
   test('semantic search box is present in the sidebar', async ({ page }) => {

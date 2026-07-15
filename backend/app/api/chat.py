@@ -13,6 +13,7 @@ from sqlalchemy import select, delete, text
 from jose import jwt
 from typing import Optional, List, Tuple
 
+from app.core import events
 from app.core.database import get_db, async_session
 from app.core.config import JWT_SECRET, JWT_ALGORITHM
 from app.models.db import Session, Message, Incident
@@ -122,6 +123,53 @@ async def _ensure_session(db: AsyncSession, user_id: int, session_id: Optional[s
     return session_id
 
 
+async def _fetch_history(db: AsyncSession, session_id: str, limit: int = 8) -> List[dict]:
+    """Prior turns of this session as LLM messages (oldest→newest, truncated).
+    Called BEFORE the new user message is persisted."""
+    rows = (await db.execute(
+        select(Message).where(Message.session_id == session_id)
+        .order_by(Message.created_at.desc()).limit(limit)
+    )).scalars().all()
+    history = []
+    for m in reversed(rows):
+        history.append({
+            "role": "user" if str(m.sender) == "user" else "assistant",
+            "content": str(m.text)[:800],
+        })
+    return history
+
+
+async def _maybe_generate_title(
+    db: AsyncSession, session_id: str, message: str, reply: str
+) -> Optional[str]:
+    """Auto-title a session after its first exchange (fast LLM, best effort)."""
+    if not llm_service.available:
+        return None
+    try:
+        msg = await llm_service.chat_completion(
+            [
+                {"role": "system", "content": (
+                    "Donne un titre très court (maximum 6 mots, en français, sans "
+                    "guillemets ni ponctuation finale) résumant cette conversation."
+                )},
+                {"role": "user", "content": f"Q: {message[:300]}\nR: {reply[:300]}"},
+            ],
+            fast=True, max_tokens=20, temperature=0.3, timeout=8.0,
+        )
+        title = (msg.content or "").strip().strip('"«»').strip()[:60]
+        if not title:
+            return None
+        session = (await db.execute(
+            select(Session).where(Session.id == session_id)
+        )).scalar_one_or_none()
+        if session:
+            session.title = title  # type: ignore[assignment]
+        return title
+    except Exception as e:
+        logger.warning("Session title generation failed: %s", e)
+        return None
+
+
 async def _classify_message(message: str) -> Tuple[str, float, Optional[str], bool, bool, bool]:
     """Classify with the embedding kNN model; consult keywords at low confidence.
 
@@ -213,8 +261,11 @@ async def _track_incident(db: AsyncSession, detected_type: Optional[str], is_inc
     }
 
 
-def _extract_citations(reply: str, sources: List[str]) -> Tuple[str, Optional[List[dict]]]:
-    """Map [n] markers in the reply to sources; strip out-of-range markers."""
+def _extract_citations(
+    reply: str, sources: List[str], docs: Optional[List[str]] = None
+) -> Tuple[str, Optional[List[dict]]]:
+    """Map [n] markers in the reply to sources (with a hover-card snippet);
+    strip out-of-range markers."""
     if not sources:
         return CITATION_RE.sub("", reply), None
     cited: List[dict] = []
@@ -225,7 +276,10 @@ def _extract_citations(reply: str, sources: List[str]) -> Tuple[str, Optional[Li
         if 1 <= n <= len(sources):
             if n not in seen:
                 seen.add(n)
-                cited.append({"index": n, "source": sources[n - 1]})
+                snippet = ""
+                if docs and n <= len(docs) and docs[n - 1]:
+                    snippet = docs[n - 1][:220]
+                cited.append({"index": n, "source": sources[n - 1], "snippet": snippet})
             return match.group(0)
         return ""  # out-of-range marker — strip it
 
@@ -308,9 +362,14 @@ async def chat(
         await _classify_message(message)
     use_agent = (is_jira or is_incident) and llm_service.available
 
-    # ── Semantic cache (plain questions only, no file) ─────────
+    # Conversation memory: prior turns (fetched BEFORE persisting this message)
+    history = await _fetch_history(db, session_id)
+    is_first_turn = not history
+
+    # ── Semantic cache (first-turn plain questions only, no file) ──
+    # Contextual replies must never be cached/replayed → first turn only.
     if (
-        rag_cfg["cache_enabled"] and file is None
+        rag_cfg["cache_enabled"] and file is None and is_first_turn
         and intent == INTENT_QUESTION and not use_agent
     ):
         cached = await query_service.get_cached(
@@ -327,13 +386,16 @@ async def chat(
                 db, message, 0.0, "cache", [], 0,
                 int(str(bot_msg.id)), intent, None
             )
+            session_title = await _maybe_generate_title(db, session_id, message, cached["reply"])
             await db.commit()
             _index_messages_async(session_id, user_id, user_msg, bot_msg)
+            events.publish({"type": "message", "sender": "bot"})
             return ChatResponse(
                 reply=cached["reply"], session_id=session_id,
                 sources=cached["sources"] or None,
                 citations=cached["citations"] or None,
                 intent=intent, cached=True,
+                session_title=session_title,
             )
 
     # ── Process file + RAG in parallel ─────────────────────────
@@ -406,6 +468,7 @@ async def chat(
 
     # ── Generate: agent loop for incident/jira intents, else single shot ──
     jira_ticket = None
+    citation_docs: Optional[List[str]] = None
     if use_agent:
         agent_result = await chat_agent_service.run(
             message, session_id, db,
@@ -419,6 +482,9 @@ async def chat(
             context_docs = None  # docs already consumed inside the loop
             context_sources = agent_result["sources"]
             context_scores = agent_result["scores"]
+            citation_docs = [
+                agent_result["docs_by_source"].get(s, "") for s in context_sources
+            ]
         if is_jira and jira_ticket is None:
             # Safety net: the model didn't call draft_jira_ticket
             recent = (await db.execute(
@@ -427,6 +493,7 @@ async def chat(
             )).scalars().all()
             jira_ticket = _build_jira_draft(message, list(reversed(recent)), detected_type)
     else:
+        citation_docs = context_docs if context_docs else None
         bot_reply = await llm_service.generate_response(
             user_message=message,
             context_docs=context_docs if context_docs else None,
@@ -436,6 +503,7 @@ async def chat(
             timeout=45.0,
             t_low=rag_cfg["t_low"],
             t_high=rag_cfg["t_high"],
+            history=history if history else None,
         )
 
     # ── Routing decision + citations + groundedness ────────────
@@ -445,7 +513,7 @@ async def chat(
 
     citations = None
     if response_sources:
-        bot_reply, citations = _extract_citations(bot_reply, response_sources)
+        bot_reply, citations = _extract_citations(bot_reply, response_sources, citation_docs)
 
     grounded = None
     if rag_cfg["evaluator_enabled"] and routing != "groq_only" and context_docs:
@@ -470,13 +538,24 @@ async def chat(
         db, message, top_score, routing, context_sources, rag_latency_ms,
         int(str(bot_msg.id)), intent, grounded
     )
+
+    # Auto-title the session after its first exchange
+    session_title = None
+    if is_first_turn:
+        session_title = await _maybe_generate_title(db, session_id, message, bot_reply)
+
     await db.commit()
     _index_messages_async(session_id, user_id, user_msg, bot_msg)
 
-    # ── Populate semantic cache ────────────────────────────────
+    # Realtime admin feed
+    events.publish({"type": "message", "sender": "bot"})
+    if guide_card:
+        events.publish({"type": "incident", "incident_type": detected_type})
+
+    # ── Populate semantic cache (first-turn questions only) ────
     if (
         rag_cfg["cache_enabled"] and file is None and not use_agent
-        and intent == INTENT_QUESTION and llm_service.available
+        and is_first_turn and intent == INTENT_QUESTION and llm_service.available
         and not bot_reply.startswith(("⏱️", "⚠️"))
     ):
         await query_service.put(message, bot_reply, response_sources, citations)
@@ -490,6 +569,7 @@ async def chat(
         citations=citations,
         grounded=grounded,
         intent=intent,
+        session_title=session_title,
     )
 
 
@@ -525,9 +605,14 @@ async def chat_stream(
                 await _classify_message(message)
             use_agent = (is_jira or is_incident) and llm_service.available
 
-            # ── Semantic cache short-circuit ──────────────────
+            # Conversation memory (fetched before the new message is saved)
+            history = await _fetch_history(db, sid)
+            is_first_turn = not history
+
+            # ── Semantic cache short-circuit (first turn only) ──
             if (
-                rag_cfg["cache_enabled"] and intent == INTENT_QUESTION and not use_agent
+                rag_cfg["cache_enabled"] and is_first_turn
+                and intent == INTENT_QUESTION and not use_agent
             ):
                 cached = await query_service.get_cached(
                     message, threshold=rag_cfg["cache_threshold"],
@@ -540,14 +625,17 @@ async def chat_stream(
                     await db.flush()
                     await _log_analytics(db, message, 0.0, "cache", [], 0,
                                          int(str(bot_msg.id)), intent, None)
+                    session_title = await _maybe_generate_title(db, sid, message, cached["reply"])
                     await db.commit()
                     _index_messages_async(sid, user_id, user_msg, bot_msg)
+                    events.publish({"type": "message", "sender": "bot"})
                     yield _sse("token", {"text": cached["reply"]})
                     yield _sse("meta", {
                         "session_id": sid, "sources": cached["sources"] or None,
                         "citations": cached["citations"] or None,
                         "guide_card": None, "jira_ticket": None,
                         "grounded": None, "intent": intent, "cached": True,
+                        "session_title": session_title,
                     })
                     yield _sse("done", {})
                     return
@@ -566,6 +654,7 @@ async def chat_stream(
             guide_card = await _track_incident(db, detected_type, is_incident)
 
             jira_ticket = None
+            citation_docs: Optional[List[str]] = None
             chunks: List[str] = []
 
             async def persist(bot_reply: str):
@@ -580,7 +669,7 @@ async def chat_stream(
                 response_sources = context_sources if routing != "groq_only" else []
                 citations = None
                 if response_sources:
-                    bot_reply, citations = _extract_citations(bot_reply, response_sources)
+                    bot_reply, citations = _extract_citations(bot_reply, response_sources, citation_docs)
                 grounded = None
                 if rag_cfg["evaluator_enabled"] and routing != "groq_only" and context_docs:
                     grounded = await llm_service.evaluate_groundedness(bot_reply, context_docs)
@@ -592,11 +681,17 @@ async def chat_stream(
                     db, message, top_score, routing, context_sources,
                     rag_latency_ms, int(str(bot_msg.id)), intent, grounded
                 )
+                session_title = None
+                if is_first_turn:
+                    session_title = await _maybe_generate_title(db, sid, message, bot_reply)
                 await db.commit()
                 _index_messages_async(sid, user_id, user_msg, bot_msg)
+                events.publish({"type": "message", "sender": "bot"})
+                if guide_card:
+                    events.publish({"type": "incident", "incident_type": detected_type})
 
                 if (
-                    rag_cfg["cache_enabled"] and not use_agent
+                    rag_cfg["cache_enabled"] and not use_agent and is_first_turn
                     and intent == INTENT_QUESTION and llm_service.available
                     and not bot_reply.startswith(("⏱️", "⚠️"))
                 ):
@@ -611,20 +706,35 @@ async def chat_stream(
                     "grounded": grounded,
                     "intent": intent,
                     "cached": False,
+                    "session_title": session_title,
                 }
 
             try:
                 if use_agent:
-                    # Run the tool loop to completion, then stream the final answer
-                    agent_result = await chat_agent_service.run(
-                        message, sid, db, file_context=None, kb_on=kb_on
-                    )
+                    # Run the tool loop as a task; stream its reasoning steps live
+                    step_queue: asyncio.Queue = asyncio.Queue()
+                    agent_task = asyncio.create_task(chat_agent_service.run(
+                        message, sid, db, file_context=None, kb_on=kb_on,
+                        on_step=step_queue.put_nowait,
+                    ))
+                    while True:
+                        if agent_task.done() and step_queue.empty():
+                            break
+                        try:
+                            step = await asyncio.wait_for(step_queue.get(), timeout=0.5)
+                            yield _sse("agent_step", step)
+                        except asyncio.TimeoutError:
+                            continue
+                    agent_result = await agent_task
                     bot_reply_raw = agent_result["reply"]
                     jira_ticket = agent_result["jira_ticket"]
                     if agent_result["sources"]:
                         context_docs = None
                         context_sources = agent_result["sources"]
                         context_scores = agent_result["scores"]
+                        citation_docs = [
+                            agent_result["docs_by_source"].get(s, "") for s in context_sources
+                        ]
                     if is_jira and jira_ticket is None:
                         recent = (await db.execute(
                             select(Message).where(Message.session_id == sid)
@@ -638,6 +748,7 @@ async def chat_stream(
                         yield _sse("token", {"text": piece})
                         await asyncio.sleep(0)
                 else:
+                    citation_docs = context_docs if context_docs else None
                     async for delta in llm_service.generate_response_stream(
                         user_message=message,
                         context_docs=context_docs if context_docs else None,
@@ -645,6 +756,7 @@ async def chat_stream(
                         context_sources=context_sources if context_sources else None,
                         t_low=rag_cfg["t_low"],
                         t_high=rag_cfg["t_high"],
+                        history=history if history else None,
                     ):
                         chunks.append(delta)
                         yield _sse("token", {"text": delta})
@@ -659,6 +771,16 @@ async def chat_stream(
             meta = await persist("".join(chunks))
             if meta is not None:
                 yield _sse("meta", meta)
+
+                # Follow-up suggestions — after the answer is already visible
+                if (
+                    rag_cfg.get("followups_enabled", True) and not use_agent
+                    and intent == INTENT_QUESTION and llm_service.available
+                ):
+                    followups = await query_service.suggest_followups(message, "".join(chunks))
+                    if followups:
+                        yield _sse("followups", {"items": followups})
+
                 yield _sse("done", {})
 
     return StreamingResponse(
@@ -698,6 +820,49 @@ async def search_conversations(
         for h in hits if h.get("session_id") in titles
     ]
     return {"results": results}
+
+
+# ── PDF exports (real formatted PDFs) ─────────────────────────
+
+@router.post("/guide-pdf")
+async def guide_pdf_endpoint(request: Request, payload: dict):
+    """RG2 guide card → formatted PDF download."""
+    await get_current_user_id(request)
+    from fastapi.responses import Response
+    from app.services.pdf_service import guide_pdf
+    try:
+        pdf = guide_pdf(payload or {})
+    except Exception as e:
+        logger.error("Guide PDF generation failed: %s", e)
+        raise HTTPException(status_code=500, detail="Échec de la génération du PDF")
+    incident = str(payload.get("incident_type") or payload.get("incidentType") or "guide")
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="guide-rg2-{incident}.pdf"'},
+    )
+
+
+@router.post("/document-pdf")
+async def document_pdf_endpoint(request: Request, payload: dict):
+    """Library document → formatted PDF download."""
+    await get_current_user_id(request)
+    from fastapi.responses import Response
+    from app.services.pdf_service import document_pdf
+    try:
+        pdf = document_pdf(
+            str(payload.get("title") or "Document"),
+            payload.get("meta") or {},
+            payload.get("sections") or [],
+        )
+    except Exception as e:
+        logger.error("Document PDF generation failed: %s", e)
+        raise HTTPException(status_code=500, detail="Échec de la génération du PDF")
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="document.pdf"'},
+    )
 
 
 # ── History endpoints ─────────────────────────────────────────

@@ -15,20 +15,21 @@ RAG_CFG = {"t_low": 0.35, "t_high": 0.75}
 
 # ── Citations ─────────────────────────────────────────────────────
 
-def test_citations_mapped_to_sources():
+def test_citations_mapped_to_sources_with_snippets():
     reply, citations = _extract_citations(
-        "Voir la procédure [1] et le guide [2].", ["tma-restart", "tma-rg2"]
+        "Voir la procédure [1] et le guide [2].", ["tma-restart", "tma-rg2"],
+        docs=["Procédure de redémarrage complète...", "Guide RG2 des récurrences..."],
     )
     assert citations == [
-        {"index": 1, "source": "tma-restart"},
-        {"index": 2, "source": "tma-rg2"},
+        {"index": 1, "source": "tma-restart", "snippet": "Procédure de redémarrage complète..."},
+        {"index": 2, "source": "tma-rg2", "snippet": "Guide RG2 des récurrences..."},
     ]
     assert "[1]" in reply and "[2]" in reply
 
 
 def test_citations_out_of_range_markers_stripped():
     reply, citations = _extract_citations("Voir [1] et [9].", ["only-source"])
-    assert citations == [{"index": 1, "source": "only-source"}]
+    assert citations == [{"index": 1, "source": "only-source", "snippet": ""}]
     assert "[9]" not in reply
 
 
@@ -40,7 +41,7 @@ def test_citations_without_sources_strips_markers():
 
 def test_citations_deduplicated():
     _, citations = _extract_citations("[1] puis encore [1].", ["src"])
-    assert citations == [{"index": 1, "source": "src"}]
+    assert citations == [{"index": 1, "source": "src", "snippet": ""}]
 
 
 # ── Routing thresholds ────────────────────────────────────────────
@@ -116,6 +117,22 @@ def test_sanitize_input_filters_injections():
 def test_sanitize_input_keeps_normal_text():
     msg = "Comment redémarrer le service nginx ?"
     assert llm_service.sanitize_input(msg) == msg
+
+
+# ── Anomaly detection ─────────────────────────────────────────────
+
+def test_zscore_flags_spike():
+    from app.services.anomaly_service import zscore
+    baseline = [10, 12, 11, 9, 10, 11, 10, 12]
+    assert zscore(11, baseline) < 3.0          # normal hour
+    assert zscore(60, baseline) > 3.0          # obvious spike
+
+
+def test_zscore_flat_baseline_and_small_sample():
+    from app.services.anomaly_service import zscore
+    assert zscore(5, [0, 0, 0, 0]) == float("inf")  # activity where there was none
+    assert zscore(0, [0, 0, 0, 0]) == 0.0
+    assert zscore(100, [1]) == 0.0             # undecidable with 1 sample
 
 
 # ── Agent tool-call salvage parser ────────────────────────────────

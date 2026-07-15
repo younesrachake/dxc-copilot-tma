@@ -21,6 +21,55 @@
   font-size: 0.82rem;
 }
 
+/* Live indicator in the page title */
+.live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--ok-soft);
+  color: var(--ok);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  vertical-align: middle;
+
+  .live-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--ok);
+    animation: live-pulse 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes live-pulse { 50% { opacity: 0.35; } }
+
+/* Anomaly alert banner (spike detection) */
+.anomaly-banner {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 12px;
+  padding: 11px 15px;
+  border-radius: var(--radius-md);
+  background: var(--warn-soft);
+  border: 1px solid var(--warn);
+  color: var(--warn);
+
+  .anomaly-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex: 1;
+    min-width: 0;
+
+    strong { font-size: 0.84rem; }
+    span   { font-size: 0.74rem; color: var(--ink-2); }
+  }
+}
+
 /* KPI row */
 .stats-grid {
   display: grid;

@@ -94,6 +94,7 @@ RAG_DEFAULTS = {
     "cache_threshold": 0.93,
     "cache_ttl_hours": 24,
     "expansion_enabled": False,
+    "followups_enabled": True,
 }
 
 
@@ -147,6 +148,96 @@ class KnowledgeSyncAgent:
         await db.commit()
         logger.info("Knowledge sync agent frequency set to '%s'", frequency)
         return await self.get_status(db)
+
+    # ── Daily email digest ────────────────────────────────────────
+
+    async def run_digest_if_due(self, db: AsyncSession) -> bool:
+        """Send the daily admin digest (opt-in via notifications.digest_enabled)."""
+        notif = await _get_setting(db, "notifications")
+        if not notif or not (notif.data or {}).get("digest_enabled"):
+            return False
+
+        agent_row = await _get_setting(db, "agent")
+        data = (agent_row.data or {}) if agent_row else {}
+        last = _parse_iso(data.get("digest_last_run"))
+        now = datetime.now(timezone.utc)
+        if last is not None and last + timedelta(days=1) > now:
+            return False
+
+        try:
+            html = await self._build_digest_html(db)
+            from app.services.email_service import email_service
+            from app.models.db import User
+            admins = (await db.execute(
+                select(User).where(User.role == "admin", User.status == "active")
+            )).scalars().all()
+            sent = 0
+            for admin in admins:
+                if await email_service.send_email(
+                    str(admin.email), "DXC Copilot — Digest quotidien", html
+                ):
+                    sent += 1
+            await _merge_setting(db, "agent", {"digest_last_run": now.isoformat()})
+            await db.commit()
+            logger.info("Daily digest sent to %d admin(s)", sent)
+            return sent > 0
+        except Exception as exc:
+            logger.warning("Daily digest failed: %s", exc)
+            return False
+
+    @staticmethod
+    async def _build_digest_html(db: AsyncSession) -> str:
+        from sqlalchemy import text as sql_text
+        yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+
+        totals = (await db.execute(sql_text(
+            "SELECT COUNT(*), "
+            "SUM(CASE WHEN routing = 'cache' THEN 1 ELSE 0 END), "
+            "SUM(CASE WHEN routing = 'groq_only' THEN 1 ELSE 0 END) "
+            "FROM rag_analytics WHERE timestamp >= :c"
+        ), {"c": yesterday})).first()
+        total, cache_hits, kb_misses = (int(totals[0] or 0), int(totals[1] or 0), int(totals[2] or 0))
+
+        intents = (await db.execute(sql_text(
+            "SELECT COALESCE(intent, 'inconnu'), COUNT(*) FROM rag_analytics "
+            "WHERE timestamp >= :c GROUP BY intent ORDER BY COUNT(*) DESC LIMIT 5"
+        ), {"c": yesterday})).all()
+        intent_rows = "".join(
+            f"<tr><td style='padding:4px 12px'>{i}</td><td style='padding:4px 12px'><b>{n}</b></td></tr>"
+            for i, n in intents
+        ) or "<tr><td style='padding:4px 12px' colspan='2'>Aucune donnée</td></tr>"
+
+        from app.services.clustering_service import latest_report
+        gaps = await latest_report(db, "knowledge_gaps") or {}
+        gap_rows = "".join(
+            f"<li>{c.get('title', '?')} — {c.get('count', 0)} question(s)</li>"
+            for c in (gaps.get("clusters") or [])[:3]
+        ) or "<li>Aucune lacune détectée</li>"
+
+        return f"""
+        <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; color: #1a1a24;">
+          <div style="background: #5F259F; color: #fff; padding: 18px 24px; border-radius: 10px 10px 0 0;">
+            <h2 style="margin: 0;">DXC Copilot — Digest quotidien</h2>
+            <span style="font-size: 12px; opacity: 0.85;">Dernières 24 heures</span>
+          </div>
+          <div style="border: 1px solid #e3e3ea; border-top: none; padding: 20px 24px; border-radius: 0 0 10px 10px;">
+            <table style="width:100%; text-align:center; margin-bottom: 16px;">
+              <tr>
+                <td><div style="font-size:26px;font-weight:bold">{total}</div><div style="font-size:12px;color:#666">Requêtes</div></td>
+                <td><div style="font-size:26px;font-weight:bold">{cache_hits}</div><div style="font-size:12px;color:#666">Cache sémantique</div></td>
+                <td><div style="font-size:26px;font-weight:bold">{kb_misses}</div><div style="font-size:12px;color:#666">Hors KB</div></td>
+              </tr>
+            </table>
+            <h3 style="font-size:14px;">Intents les plus fréquents</h3>
+            <table style="font-size:13px; border-collapse: collapse;">{intent_rows}</table>
+            <h3 style="font-size:14px; margin-top:16px;">Lacunes de la base de connaissances</h3>
+            <ul style="font-size:13px;">{gap_rows}</ul>
+            <p style="font-size:11px;color:#999;margin-top:20px;">
+              Digest automatique — désactivable dans Administration → Paramètres → Notifications.
+            </p>
+          </div>
+        </div>
+        """
 
     # ── Scheduling ────────────────────────────────────────────────
 

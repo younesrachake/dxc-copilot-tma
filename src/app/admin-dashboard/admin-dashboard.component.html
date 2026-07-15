@@ -3,7 +3,10 @@
   <!-- ── Header ─────────────────────────────────────────── -->
   <header class="page-header">
     <div>
-      <div class="ph-title">Tableau de bord</div>
+      <div class="ph-title">
+        Tableau de bord
+        <span class="live-pill" *ngIf="isLive"><span class="live-dot"></span> EN DIRECT</span>
+      </div>
       <p class="ph-subtitle" *ngIf="lastUpdated">Mis à jour à {{ lastUpdated }}</p>
       <p class="ph-subtitle" *ngIf="!lastUpdated">Chargement des données…</p>
     </div>
@@ -21,6 +24,16 @@
   <div *ngIf="loadError" class="error-banner">
     <app-icon name="triangle-alert" [size]="15" />
     Impossible de charger les statistiques. Vérifiez votre connexion et réessayez.
+  </div>
+
+  <!-- ── Anomaly alerts (spike detection) ───────────────── -->
+  <div *ngFor="let a of anomalies" class="anomaly-banner">
+    <app-icon name="zap" [size]="15" />
+    <div class="anomaly-text">
+      <strong>{{ a.title }}</strong>
+      <span>{{ a.description }}</span>
+    </div>
+    <span class="badge badge--danger">z = {{ a.zscore }}</span>
   </div>
 
   <!-- ── Skeleton (loading) ─────────────────────────────── -->

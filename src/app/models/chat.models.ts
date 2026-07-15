@@ -56,7 +56,9 @@ export interface ChatMessage {
   jiraTooltipOpen?: boolean;
   savedAsDocument?: boolean;
   sources?: string[];  // KB source IDs used to generate this response
-  citations?: { index: number; source: string }[];  // [n] markers → KB sources
+  citations?: { index: number; source: string; snippet?: string }[];  // [n] markers → KB sources
   grounded?: boolean | null;  // evaluator verdict: reply supported by KB excerpts
   cached?: boolean;           // served from the semantic cache
+  agentSteps?: { tool: string; label: string; done: boolean }[];  // live reasoning timeline
+  stepsCollapsed?: boolean;   // timeline accordion state after completion
 }

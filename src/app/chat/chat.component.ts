@@ -8,11 +8,13 @@ import { ApiService } from '../services/api.service';
 import { DocumentStoreService } from '../services/document-store.service';
 import { Artifact, TerminalCmd, JiraTicketDraft, ChatMessage, AttachedFile, GuideCard } from '../models/chat.models';
 import { IconComponent } from '../shared/icon.component';
+import { MarkdownLitePipe } from '../shared/markdown.pipe';
+import { TtsService } from '../services/tts.service';
 
 @Component({
   selector: 'app-chat',
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule, DatePipe, SlicePipe, IconComponent],
+  imports: [NgFor, NgIf, FormsModule, DatePipe, SlicePipe, IconComponent, MarkdownLitePipe],
   templateUrl: './chat.component.html',
   styleUrl: './chat.component.scss'
 })
@@ -134,14 +136,58 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
   // Flag for stop button
   isCancelling = false;
 
+  // ── Follow-up suggestion chips (cleared on each new message) ──
+  followups: string[] = [];
+
   constructor(
     private router: Router,
     public integrationManager: IntegrationManagerService,
     private chatStore: ChatStoreService,
     private api: ApiService,
     private cdr: ChangeDetectorRef,
-    private documentStore: DocumentStoreService
+    private documentStore: DocumentStoreService,
+    public tts: TtsService
   ) {}
+
+  // ── Text-to-speech ────────────────────────────────────────────
+  toggleSpeak(msg: ChatMessage): void {
+    if (this.tts.isSpeaking(msg.id)) {
+      this.tts.stop();
+    } else {
+      this.tts.speak(msg.text, msg.id, () => this.cdr.detectChanges());
+    }
+  }
+
+  // ── Export conversation as Markdown ───────────────────────────
+  exportConversation(): void {
+    if (!this.messages.length) return;
+    const lines: string[] = [
+      `# Conversation DXC Copilot`,
+      `_Exportée le ${new Date().toLocaleString('fr-FR')}_`,
+      '',
+    ];
+    for (const m of this.messages) {
+      lines.push(m.sender === 'user' ? '**Vous :**' : '**Copilot :**');
+      lines.push(m.text, '');
+      if (m.sources?.length) lines.push(`> Sources KB : ${m.sources.join(', ')}`, '');
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `conversation-${new Date().toISOString().slice(0, 10)}.md`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  useFollowup(text: string): void {
+    this.followups = [];
+    this.newMessage = text;
+    this.sendMessage();
+  }
+
+  toggleSteps(msg: ChatMessage): void {
+    msg.stepsCollapsed = !msg.stepsCollapsed;
+  }
 
   ngOnInit(): void {
     this.chatStore.activeChatId$.subscribe(id => {
@@ -482,6 +528,8 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
       return;
     }
     this.errorNotification = null;
+    this.followups = [];
+    this.tts.stop();
 
     this.showWelcome = false;
     const userMsg: ChatMessage = {
@@ -531,6 +579,9 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
           this.currentSessionId = res.session_id;
           if (!prevSessionId && res.session_id) {
             this.chatStore.emitSessionCreated(res.session_id, text.substring(0, 50) || 'Nouveau chat');
+          }
+          if (res.session_title && res.session_id) {
+            this.chatStore.emitSessionRenamed(res.session_id, res.session_title);
           }
           const { cleanText, artifact } = this.parseCodeBlocks(res.reply);
           const bot: ChatMessage = {
@@ -603,9 +654,26 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
       if (this.timeoutHandle) { clearTimeout(this.timeoutHandle); this.timeoutHandle = null; }
     };
 
+    this.followups = [];
     this.api.streamMessage(text, this.currentSessionId, {
       onStatus: (s) => {
         this.loadingText = s;
+        this.cdr.detectChanges();
+      },
+      onAgentStep: (step) => {
+        clearTimer();
+        if (!botPushed) {
+          botPushed = true;
+          this.isLoading = false;
+          this.loadingText = '';
+          this.messages.push(bot);
+          this.streamingIds.add(bot.id);
+        }
+        bot.agentSteps = bot.agentSteps || [];
+        // previous step finishes when the next one starts
+        bot.agentSteps.forEach(s => s.done = true);
+        bot.agentSteps.push({ tool: step.tool, label: step.label, done: false });
+        this.shouldScroll = true;
         this.cdr.detectChanges();
       },
       onToken: (t) => {
@@ -617,8 +685,18 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
           this.messages.push(bot);
           this.streamingIds.add(bot.id);
         }
+        if (bot.agentSteps) {
+          // answer started → all steps complete, collapse the timeline
+          bot.agentSteps.forEach(s => s.done = true);
+          if (bot.stepsCollapsed === undefined) bot.stepsCollapsed = true;
+        }
         bot.text += t;
         this.displayedTexts.set(bot.id, bot.text);
+        this.shouldScroll = true;
+        this.cdr.detectChanges();
+      },
+      onFollowups: (items) => {
+        this.followups = items;
         this.shouldScroll = true;
         this.cdr.detectChanges();
       },
@@ -627,6 +705,9 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
           this.currentSessionId = meta.session_id;
           if (!prevSessionId) {
             this.chatStore.emitSessionCreated(meta.session_id, text.substring(0, 50) || 'Nouveau chat');
+          }
+          if (meta.session_title) {
+            this.chatStore.emitSessionRenamed(meta.session_id, meta.session_title);
           }
         }
         if (meta.guide_card) {
@@ -889,13 +970,25 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
     setTimeout(() => this.errorNotification = null, 5000);
   }
 
-  downloadGuide(guide: GuideCard): void {
-    const content = `Guide de résolution — ${guide.incidentType}\nOccurrences: ${guide.occurrences}\nGénéré le: ${new Date().toLocaleDateString('fr-FR')}`;
-    const blob = new Blob([content], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = guide.filename; a.click();
-    URL.revokeObjectURL(url);
+  async downloadGuide(guide: GuideCard): Promise<void> {
+    // Real formatted PDF from the backend (reportlab)
+    const g = guide as any;
+    const incident = g.incident_type || g.incidentType || 'incident';
+    try {
+      const blob = await this.api.fetchPdf('/api/chat/guide-pdf', g);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `guide-rg2-${incident}.pdf`; a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Fallback: plain-text download if the PDF endpoint is unreachable
+      const content = `Guide de résolution — ${incident}\nOccurrences: ${g.occurrences}\nGénéré le: ${new Date().toLocaleDateString('fr-FR')}`;
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `guide-${incident}.txt`; a.click();
+      URL.revokeObjectURL(url);
+    }
   }
 
   // ── Save reply as incident guide document ────────────────────

@@ -88,6 +88,34 @@ class QueryService:
         if count:
             logger.info("Semantic cache invalidated (%d entries)", count)
 
+    # ── Follow-up suggestions ─────────────────────────────────────
+
+    async def suggest_followups(self, question: str, answer: str) -> List[str]:
+        """Up to 3 short French follow-up questions for the current exchange."""
+        from app.services.llm_service import llm_service
+        if not llm_service.available:
+            return []
+        messages = [
+            {"role": "system", "content": (
+                "Propose 3 questions de suivi courtes (max 10 mots chacune) qu'un "
+                "technicien TMA poserait naturellement après cet échange. Réponds "
+                'UNIQUEMENT avec un tableau JSON de 3 chaînes: ["q1", "q2", "q3"]'
+            )},
+            {"role": "user", "content": f"QUESTION:\n{question[:400]}\n\nRÉPONSE:\n{answer[:800]}"},
+        ]
+        try:
+            msg = await llm_service.chat_completion(
+                messages, fast=True, max_tokens=120, temperature=0.6, timeout=8.0
+            )
+            match = re.search(r"\[.*\]", msg.content or "", re.DOTALL)
+            if not match:
+                return []
+            items = json.loads(match.group(0))
+            return [str(i).strip()[:120] for i in items if isinstance(i, str) and i.strip()][:3]
+        except Exception as e:
+            logger.warning("Follow-up suggestion failed: %s", e)
+            return []
+
     # ── Query expansion ───────────────────────────────────────────
 
     async def expand_query(self, query: str) -> List[str]:

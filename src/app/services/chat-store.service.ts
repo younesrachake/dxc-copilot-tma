@@ -30,4 +30,12 @@ export class ChatStoreService {
   emitSessionCreated(id: string, title: string): void {
     this._sessionCreated$.next({ id, title });
   }
+
+  private _sessionRenamed$ = new Subject<{id: string, title: string}>();
+  readonly sessionRenamed$ = this._sessionRenamed$.asObservable();
+
+  /** Backend auto-titled the session — the sidebar patches its history item. */
+  emitSessionRenamed(id: string, title: string): void {
+    this._sessionRenamed$.next({ id, title });
+  }
 }

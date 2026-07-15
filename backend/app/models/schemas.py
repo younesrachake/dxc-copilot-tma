@@ -46,10 +46,11 @@ class ChatResponse(BaseModel):
     guide_card: Optional[dict] = None
     sources: Optional[List[str]] = None   # KB source IDs used (empty when Groq answered freely)
     jira_ticket: Optional[dict] = None    # Pre-filled Jira draft when a ticket intent is detected
-    citations: Optional[List[dict]] = None  # [{"index": n, "source": id}] mapping [n] markers in reply
+    citations: Optional[List[dict]] = None  # [{"index", "source", "snippet"}] mapping [n] markers in reply
     grounded: Optional[bool] = None       # Evaluator verdict: reply supported by KB excerpts
     intent: Optional[str] = None          # Classified intent of the user message
     cached: bool = False                  # True when served from the semantic cache
+    session_title: Optional[str] = None   # Auto-generated title after the first exchange
 
 # ─── Feedback ──────────────────────────────────────────
 class FeedbackRequest(BaseModel):

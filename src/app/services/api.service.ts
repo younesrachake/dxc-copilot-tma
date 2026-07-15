@@ -13,6 +13,12 @@ export interface LoginResponse {
 export interface ChatCitation {
   index: number;
   source: string;
+  snippet?: string;
+}
+
+export interface AgentStep {
+  tool: string;
+  label: string;
 }
 
 export interface ChatApiResponse {
@@ -25,12 +31,15 @@ export interface ChatApiResponse {
   grounded?: boolean | null;
   intent?: string;
   cached?: boolean;
+  session_title?: string | null;
 }
 
 export interface ChatStreamHandlers {
   onStatus?: (text: string) => void;
   onToken: (text: string) => void;
   onMeta: (meta: Partial<ChatApiResponse>) => void;
+  onAgentStep?: (step: AgentStep) => void;
+  onFollowups?: (items: string[]) => void;
   onDone: () => void;
   onError: (message: string) => void;
 }
@@ -171,7 +180,9 @@ export class ApiService {
       switch (parsed.event) {
         case 'status': handlers.onStatus?.(payload.text || ''); break;
         case 'token': handlers.onToken(payload.text || ''); break;
+        case 'agent_step': handlers.onAgentStep?.(payload); break;
         case 'meta': handlers.onMeta(payload); break;
+        case 'followups': handlers.onFollowups?.(payload.items || []); break;
         case 'done': finished = true; handlers.onDone(); break;
         case 'error': finished = true; handlers.onError(payload.detail || 'Erreur du serveur'); break;
       }
@@ -192,6 +203,49 @@ export class ApiService {
     } catch {
       if (!finished) handlers.onError('Le flux de réponse a été interrompu.');
     }
+  }
+
+  // ── Generic SSE GET stream (admin live events) ───────────
+  streamGet(path: string, onEvent: (event: string, data: any) => void): AbortController {
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const response = await fetch(`${this.baseUrl}${path}`, {
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        if (!response.ok || !response.body) return;
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let sep: number;
+          while ((sep = buffer.indexOf('\n\n')) !== -1) {
+            const parsed = parseSseBlock(buffer.slice(0, sep));
+            buffer = buffer.slice(sep + 2);
+            if (parsed) onEvent(parsed.event, parsed.data);
+          }
+        }
+      } catch {
+        // aborted or network drop — silent (dashboard degrades to manual refresh)
+      }
+    })();
+    return controller;
+  }
+
+  // ── PDF downloads (real formatted PDFs) ──────────────────
+  async fetchPdf(path: string, payload: any): Promise<Blob> {
+    const resp = await fetch(`${this.baseUrl}${path}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) throw new Error(`PDF ${resp.status}`);
+    return resp.blob();
   }
 
   // ── Semantic conversation search ─────────────────────────
@@ -267,6 +321,11 @@ export class ApiService {
 
   getIncidentClusters(days = 30, refresh = false): Observable<any> {
     return this.http.get(`${this.baseUrl}/api/admin/incident-clusters?days=${days}&refresh=${refresh}`, { withCredentials: true })
+      .pipe(catchError(this.handleError));
+  }
+
+  getAnomalies(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/api/admin/anomalies`, { withCredentials: true })
       .pipe(catchError(this.handleError));
   }
 

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../services/api.service';
@@ -11,7 +11,7 @@ import { IconComponent } from '../shared/icon.component';
   templateUrl: './admin-dashboard.component.html',
   styleUrls: ['./admin-dashboard.component.scss']
 })
-export class AdminDashboardComponent implements OnInit {
+export class AdminDashboardComponent implements OnInit, OnDestroy {
   stats = [
     { label: 'Utilisateurs actifs',   value: '—', icon: 'users' },
     { label: 'Sessions aujourd\'hui', value: '—', icon: 'zap' },
@@ -32,10 +32,53 @@ export class AdminDashboardComponent implements OnInit {
     { icon: 'wrench',   title: 'Maintenance',             desc: 'Tâches planifiées et santé du système',      action: () => this.performMaintenance() },
   ];
 
+  // ── Live feed (SSE) + anomaly alerts ────────────────────────
+  isLive = false;
+  anomalies: any[] = [];
+  private eventStream: AbortController | null = null;
+
   constructor(private router: Router, private api: ApiService) {}
 
   ngOnInit(): void {
     this.refreshData();
+    this.loadAnomalies();
+    this.connectLiveFeed();
+  }
+
+  ngOnDestroy(): void {
+    this.eventStream?.abort();
+  }
+
+  private connectLiveFeed(): void {
+    this.eventStream = this.api.streamGet('/api/admin/events', (event, data) => {
+      if (event !== 'activity') return;
+      this.isLive = true;
+      if (data.type === 'message') {
+        // bump the "Messages totaux" tile and pulse the feed
+        const tile = this.stats.find(s => s.icon === 'message-circle');
+        if (tile && tile.value !== '—') tile.value = String(Number(tile.value) + 1);
+        this.recentActivity = [{
+          user: data.sender || 'bot',
+          action: 'Nouveau message dans une conversation',
+          time: data.at || new Date().toISOString(),
+        }, ...this.recentActivity].slice(0, 15);
+      } else if (data.type === 'incident') {
+        const tile = this.stats.find(s => s.icon === 'triangle-alert');
+        if (tile && tile.value !== '—') tile.value = String(Number(tile.value) + 1);
+        this.recentActivity = [{
+          user: 'bot',
+          action: `Incident récurrent détecté (${data.incident_type || 'type inconnu'})`,
+          time: data.at || new Date().toISOString(),
+        }, ...this.recentActivity].slice(0, 15);
+      }
+    });
+  }
+
+  private loadAnomalies(): void {
+    this.api.getAnomalies().subscribe({
+      next: (r) => { this.anomalies = r.anomalies || []; },
+      error: () => { this.anomalies = []; }
+    });
   }
 
   refreshData(): void {

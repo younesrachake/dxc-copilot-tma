@@ -1,0 +1,31 @@
+{
+  "name": "DXC Copilot TMA",
+  "short_name": "DXC Copilot",
+  "description": "Assistant IA de Tierce Maintenance Applicative — diagnostic d'incidents, procédures TMA et tickets Jira.",
+  "theme_color": "#5F259F",
+  "background_color": "#0F0F16",
+  "display": "standalone",
+  "scope": "/",
+  "start_url": "/",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

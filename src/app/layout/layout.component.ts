@@ -115,6 +115,10 @@ export class LayoutComponent implements OnInit, OnDestroy {
       error: () => { this.isAdmin = false; }
     });
     this.loadSessions();
+    this.chatStore.sessionRenamed$.subscribe(({ id, title }) => {
+      const item = this.history.find((h: any) => h.id === id);
+      if (item) item.topic = title;
+    });
     this.chatStore.sessionCreated$.subscribe(session => {
       if (!this.history.find((h: any) => h.id === session.id)) {
         this.history.unshift({

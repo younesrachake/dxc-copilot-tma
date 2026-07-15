@@ -1484,3 +1484,58 @@ async def apply_routing_thresholds(
     await audit(db, int(str(admin_user.id)), "rag_settings_updated",
                 resource="rag_settings", detail=json.dumps(data))
     return {"status": "success", "settings": updated}
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  REALTIME — live event stream + anomaly reports
+# ═══════════════════════════════════════════════════════════════════
+
+@router.get("/events")
+async def admin_events(request: Request, db: AsyncSession = Depends(get_db)):
+    """SSE stream of live activity events (messages, incidents) for the dashboard."""
+    await require_admin(request, db)
+    from fastapi.responses import StreamingResponse
+    from app.core import events as event_hub
+
+    async def stream():
+        queue = event_hub.subscribe()
+        try:
+            yield ": connected\n\n"
+            while True:
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=15.0)
+                    payload = json.dumps(event, ensure_ascii=False)
+                    yield f"event: activity\ndata: {payload}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+        finally:
+            event_hub.unsubscribe(queue)
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/anomalies")
+async def get_anomalies(request: Request, db: AsyncSession = Depends(get_db)):
+    """Anomaly alerts raised in the last 24h (spike detection on telemetry)."""
+    await require_admin(request, db)
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+    rows = (await db.execute(
+        text(
+            "SELECT payload, created_at FROM agent_reports "
+            "WHERE report_type = 'anomaly' AND created_at >= :c ORDER BY id DESC LIMIT 10"
+        ),
+        {"c": cutoff},
+    )).all()
+    items = []
+    for payload, created_at in rows:
+        try:
+            item = json.loads(payload)
+            item["created_at"] = str(created_at)
+            items.append(item)
+        except Exception:
+            continue
+    return {"anomalies": items}

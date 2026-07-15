@@ -31,6 +31,14 @@ MAX_ITERATIONS = 5
 TIME_BUDGET_SECONDS = 60.0
 MAX_TOOL_OUTPUT_CHARS = 2000
 
+# Human-readable French labels for the live reasoning timeline
+TOOL_LABELS = {
+    "search_kb": "Recherche dans la base de connaissances",
+    "get_incident_history": "Consultation de l'historique des incidents",
+    "get_session_context": "Relecture de la conversation",
+    "draft_jira_ticket": "Préparation du brouillon Jira",
+}
+
 AGENT_INSTRUCTIONS = (
     "\n\nTu disposes d'outils pour enquêter avant de répondre :\n"
     "- search_kb : cherche dans la base de connaissances TMA (procédures, incidents connus).\n"
@@ -114,17 +122,23 @@ class ChatAgentService:
         db: AsyncSession,
         file_context: Optional[str] = None,
         kb_on: bool = True,
+        on_step=None,
     ) -> dict:
         """Run the bounded agent loop. Returns
-        {reply, jira_ticket, sources, scores, tool_trace}."""
+        {reply, jira_ticket, sources, scores, docs_by_source, tool_trace}.
+
+        on_step: optional sync callable({"tool", "label"}) fired before each
+        tool execution — feeds the live reasoning timeline in the UI."""
         sanitized = llm_service.sanitize_input(message)
         state = {
             "jira_ticket": None,
             "sources": [],
             "scores": [],
+            "docs_by_source": {},
             "tool_trace": [],
             "kb_on": kb_on,
             "session_id": session_id,
+            "on_step": on_step,
         }
 
         messages = [{"role": "system", "content": SYSTEM_PROMPT + AGENT_INSTRUCTIONS}]
@@ -205,6 +219,7 @@ class ChatAgentService:
             "jira_ticket": state["jira_ticket"],
             "sources": state["sources"],
             "scores": state["scores"],
+            "docs_by_source": state["docs_by_source"],
             "tool_trace": state["tool_trace"],
         }
 
@@ -253,6 +268,11 @@ class ChatAgentService:
             return f"Erreur: arguments invalides pour {name} ({e}). Réessaie avec un JSON valide."
 
         state["tool_trace"].append({"tool": name, "args": args})
+        if state.get("on_step"):
+            try:
+                state["on_step"]({"tool": name, "label": TOOL_LABELS.get(name, name)})
+            except Exception:
+                pass
         try:
             if name == "search_kb":
                 return await self._tool_search_kb(args, state)
@@ -278,10 +298,11 @@ class ChatAgentService:
         if not docs:
             return "Aucun résultat dans la base de connaissances."
         # Track KB usage for response attribution (dedupe, keep best score)
-        for doc_src, doc_score in zip(sources, scores):
+        for doc_text, doc_src, doc_score in zip(docs, sources, scores):
             if doc_src not in state["sources"]:
                 state["sources"].append(doc_src)
                 state["scores"].append(doc_score)
+                state["docs_by_source"][doc_src] = doc_text
         lines = [
             f"[{src}] (score {score:.2f}) {doc[:500]}"
             for doc, score, src in zip(docs, scores, sources)

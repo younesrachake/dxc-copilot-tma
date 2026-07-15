@@ -6,178 +6,201 @@
   <ng-container *ngIf="!selectedDoc">
 
     <!-- Library Header -->
-    <header class="lib-header">
+    <header class="page-header lib-header">
       <div class="lib-header-left">
-        <button class="back-btn" routerLink="/chat">← Retour</button>
+        <button class="btn btn-outline" routerLink="/chat">
+          <app-icon name="arrow-left" [size]="14" /> Retour
+        </button>
         <div>
-          <h1 class="lib-title">📄 Documents générés</h1>
-          <p class="lib-subtitle">Guides d'incidents auto-générés par l'IA après 3 occurrences détectées en conversation</p>
+          <div class="ph-title">Documents</div>
+          <p class="ph-subtitle">Guides d'incidents auto-générés par l'IA après 3 occurrences détectées — appuyez sur <kbd>/</kbd> pour rechercher</p>
         </div>
       </div>
-      <button class="btn-create" (click)="openCreateForm()">+ Nouveau guide</button>
+      <div class="ph-actions">
+        <div class="view-toggle" role="group" aria-label="Mode d'affichage">
+          <button class="vt-btn" [class.active]="viewMode === 'grid'" (click)="setViewMode('grid')" title="Vue cartes">
+            <app-icon name="layout-grid" [size]="15" />
+          </button>
+          <button class="vt-btn" [class.active]="viewMode === 'list'" (click)="setViewMode('list')" title="Vue liste">
+            <app-icon name="list" [size]="15" />
+          </button>
+        </div>
+        <select class="field sort-select" [(ngModel)]="sortBy" title="Trier">
+          <option value="recent">Plus récents</option>
+          <option value="severity">Sévérité</option>
+          <option value="title">Titre A–Z</option>
+        </select>
+        <button class="btn btn-primary" (click)="openCreateForm()">
+          <app-icon name="plus" [size]="14" /> Nouveau guide
+        </button>
+      </div>
     </header>
 
-    <!-- Stats Bar -->
-    <div class="lib-stats">
-      <div class="stat-pill total">
-        <span class="stat-num">{{ allDocuments.length }}</span>
-        <span class="stat-lbl">Total</span>
-      </div>
-      <div class="stat-pill resolved">
-        <span class="stat-num">{{ totalResolved }}</span>
-        <span class="stat-lbl">Résolus</span>
-      </div>
-      <div class="stat-pill inprogress">
-        <span class="stat-num">{{ totalInProgress }}</span>
-        <span class="stat-lbl">En cours</span>
-      </div>
-      <div class="stat-pill open">
-        <span class="stat-num">{{ totalOpen }}</span>
-        <span class="stat-lbl">Ouverts</span>
-      </div>
-    </div>
+    <div class="lib-content">
 
-    <!-- ── Pending Drafts (Human-in-the-Loop) ── -->
-    <div class="drafts-section" *ngIf="pendingDraftCount > 0">
-      <div class="drafts-header">
-        <div class="drafts-title-row">
-          <span class="drafts-icon">📋</span>
-          <h2 class="drafts-title">Guides en attente de validation</h2>
-          <span class="drafts-count-badge">{{ pendingDraftCount }}</span>
+      <!-- Stats tiles -->
+      <div class="lib-stats-grid">
+        <div class="stat-tile">
+          <span class="st-label">Total</span>
+          <span class="st-value">{{ allDocuments.length }}</span>
+          <div class="st-icon"><app-icon name="file-text" [size]="15" /></div>
         </div>
-        <p class="drafts-subtitle">L'IA a généré ces guides après 3+ occurrences similaires. Une révision par un ingénieur senior est requise avant publication.</p>
+        <div class="stat-tile">
+          <span class="st-label">Résolus</span>
+          <span class="st-value">{{ totalResolved }}</span>
+          <div class="st-icon st-ok"><app-icon name="check" [size]="15" /></div>
+        </div>
+        <div class="stat-tile">
+          <span class="st-label">En cours</span>
+          <span class="st-value">{{ totalInProgress }}</span>
+          <div class="st-icon st-warn"><app-icon name="clock" [size]="15" /></div>
+        </div>
+        <div class="stat-tile">
+          <span class="st-label">Ouverts</span>
+          <span class="st-value">{{ totalOpen }}</span>
+          <div class="st-icon st-danger"><app-icon name="triangle-alert" [size]="15" /></div>
+        </div>
       </div>
 
-      <div class="drafts-grid">
-        <div *ngFor="let draft of pendingDrafts"
-             class="draft-card"
-             [class.draft-pending]="draft.status === 'pending'"
-             [class.draft-approved]="draft.status === 'approved'"
-             [class.draft-rejected]="draft.status === 'rejected'"
-             [class.draft-changes]="draft.status === 'changes_requested'">
+      <!-- ── Pending Drafts (Human-in-the-Loop) ── -->
+      <div class="drafts-section" *ngIf="pendingDraftCount > 0">
+        <div class="drafts-header">
+          <div class="drafts-title-row">
+            <app-icon name="file-search" [size]="17" />
+            <h2 class="drafts-title">Guides en attente de validation</h2>
+            <span class="badge badge--warn">{{ pendingDraftCount }}</span>
+          </div>
+          <p class="drafts-subtitle">L'IA a généré ces guides après 3+ occurrences similaires. Une révision par un ingénieur senior est requise avant publication.</p>
+        </div>
 
-          <div class="draft-card-top">
-            <div class="draft-badges">
-              <span class="sev-badge" [style.background]="severityColor(draft.severity)">{{ draft.severity }}</span>
-              <span class="cat-badge">{{ draft.category }}</span>
-              <span class="occ-badge">🔁 {{ draft.occurrences }}× détecté</span>
+        <div class="drafts-grid">
+          <div *ngFor="let draft of pendingDrafts"
+               class="card draft-card"
+               [class.draft-approved]="draft.status === 'approved'"
+               [class.draft-rejected]="draft.status === 'rejected'"
+               [class.draft-changes]="draft.status === 'changes_requested'">
+
+            <div class="draft-card-top">
+              <div class="draft-badges">
+                <span class="badge" [class.badge--danger]="draft.severity === 'P1'"
+                      [class.badge--warn]="draft.severity === 'P2'"
+                      [class.badge--info]="draft.severity === 'P3'">{{ draft.severity }}</span>
+                <span class="badge badge--neutral">{{ draft.category }}</span>
+                <span class="badge badge--accent"><app-icon name="refresh-cw" [size]="10" /> {{ draft.occurrences }}× détecté</span>
+              </div>
+              <span class="badge"
+                    [class.badge--warn]="draft.status === 'pending'"
+                    [class.badge--ok]="draft.status === 'approved'"
+                    [class.badge--danger]="draft.status === 'rejected'"
+                    [class.badge--info]="draft.status === 'changes_requested'">
+                <ng-container *ngIf="draft.status === 'pending'">En attente</ng-container>
+                <ng-container *ngIf="draft.status === 'approved'">Approuvé</ng-container>
+                <ng-container *ngIf="draft.status === 'rejected'">Rejeté</ng-container>
+                <ng-container *ngIf="draft.status === 'changes_requested'">Modif. demandées</ng-container>
+              </span>
             </div>
-            <span class="draft-status-chip"
-                  [class.chip-pending]="draft.status === 'pending'"
-                  [class.chip-approved]="draft.status === 'approved'"
-                  [class.chip-rejected]="draft.status === 'rejected'"
-                  [class.chip-changes]="draft.status === 'changes_requested'">
-              <ng-container *ngIf="draft.status === 'pending'">⏳ En attente</ng-container>
-              <ng-container *ngIf="draft.status === 'approved'">✅ Approuvé</ng-container>
-              <ng-container *ngIf="draft.status === 'rejected'">❌ Rejeté</ng-container>
-              <ng-container *ngIf="draft.status === 'changes_requested'">📝 Modif. demandées</ng-container>
-            </span>
-          </div>
 
-          <h3 class="draft-title">{{ draft.title }}</h3>
-          <p class="draft-desc">{{ draft.description }}</p>
+            <h3 class="draft-title">{{ draft.title }}</h3>
+            <p class="draft-desc">{{ draft.description }}</p>
 
-          <div class="draft-meta">
-            <span>📁 {{ draft.generatedFrom }}</span>
-            <span>🕐 {{ draft.generatedAt }}</span>
-            <span>👤 {{ draft.triggeredBy }}</span>
-          </div>
+            <div class="draft-meta">
+              <span><app-icon name="message-circle" [size]="11" /> {{ draft.generatedFrom }}</span>
+              <span><app-icon name="clock" [size]="11" /> {{ draft.generatedAt }}</span>
+              <span><app-icon name="user" [size]="11" /> {{ draft.triggeredBy }}</span>
+            </div>
 
-          <div class="draft-actions" *ngIf="draft.status === 'pending'">
-            <button class="draft-btn review" (click)="openReviewPanel(draft)">
-              🔍 Réviser et valider
-            </button>
-          </div>
-          <div class="draft-done-row" *ngIf="draft.status !== 'pending'">
-            <span class="draft-done-msg" *ngIf="draft.status === 'approved'">✅ Publié dans la base de connaissances</span>
-            <span class="draft-done-msg changes" *ngIf="draft.status === 'changes_requested'">📝 Modifications demandées à l'auteur</span>
-            <span class="draft-done-msg rejected" *ngIf="draft.status === 'rejected'">❌ Guide rejeté</span>
+            <div class="draft-actions" *ngIf="draft.status === 'pending'">
+              <button class="btn btn-primary" (click)="openReviewPanel(draft)">
+                <app-icon name="file-search" [size]="14" /> Réviser et valider
+              </button>
+            </div>
+            <div class="draft-done-row" *ngIf="draft.status !== 'pending'">
+              <span class="draft-done-msg ok" *ngIf="draft.status === 'approved'"><app-icon name="check" [size]="12" /> Publié dans la base de connaissances</span>
+              <span class="draft-done-msg changes" *ngIf="draft.status === 'changes_requested'"><app-icon name="pencil" [size]="12" /> Modifications demandées à l'auteur</span>
+              <span class="draft-done-msg rejected" *ngIf="draft.status === 'rejected'"><app-icon name="x" [size]="12" /> Guide rejeté</span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Filters -->
-    <div class="lib-filters">
-      <div class="search-wrap">
-        <span class="search-icon">🔍</span>
-        <input class="search-input" type="text" placeholder="Rechercher un guide..." [(ngModel)]="searchQuery"/>
+      <!-- Filters -->
+      <div class="lib-filters">
+        <div class="search-wrap">
+          <app-icon name="search" [size]="15" />
+          <input #searchInput class="search-input" type="text" placeholder="Rechercher un guide...  ( / )" [(ngModel)]="searchQuery"/>
+        </div>
+        <select class="field filter-select" [(ngModel)]="filterCategory">
+          <option value="">Toutes catégories</option>
+          <option>Infrastructure</option>
+          <option>Performance</option>
+          <option>Sécurité</option>
+          <option>Disponibilité</option>
+        </select>
+        <select class="field filter-select" [(ngModel)]="filterStatus">
+          <option value="">Tous statuts</option>
+          <option>Résolu</option>
+          <option>En cours</option>
+          <option>Ouvert</option>
+        </select>
+        <select class="field filter-select" [(ngModel)]="filterSeverity">
+          <option value="">Toutes sévérités</option>
+          <option>P1</option>
+          <option>P2</option>
+          <option>P3</option>
+        </select>
+        <button class="btn btn-outline" (click)="clearFilters()">
+          <app-icon name="x" [size]="13" /> Réinitialiser
+        </button>
+        <span class="lib-count">{{ sortedDocuments.length }} guide(s)</span>
       </div>
-      <select class="filter-select" [(ngModel)]="filterCategory">
-        <option value="">Toutes catégories</option>
-        <option>Infrastructure</option>
-        <option>Performance</option>
-        <option>Sécurité</option>
-        <option>Disponibilité</option>
-      </select>
-      <select class="filter-select" [(ngModel)]="filterStatus">
-        <option value="">Tous statuts</option>
-        <option>Résolu</option>
-        <option>En cours</option>
-        <option>Ouvert</option>
-      </select>
-      <select class="filter-select" [(ngModel)]="filterSeverity">
-        <option value="">Toutes sévérités</option>
-        <option>P1</option>
-        <option>P2</option>
-        <option>P3</option>
-      </select>
-      <button class="btn-clear" (click)="clearFilters()">✕ Réinitialiser</button>
-    </div>
 
-    <!-- Results count -->
-    <div class="lib-count">
-      {{ filteredDocuments.length }} guide(s) trouvé(s)
-    </div>
+      <!-- Document Cards (grid ⇄ list) -->
+      <div class="lib-grid" [class.list-view]="viewMode === 'list'">
+        <div *ngFor="let doc of sortedDocuments"
+             class="card doc-card"
+             (click)="openDocument(doc)">
 
-    <!-- Document Cards Grid -->
-    <div class="lib-grid">
-      <div *ngFor="let doc of filteredDocuments"
-           class="doc-card"
-           (click)="openDocument(doc)">
+          <div class="card-icon"><app-icon name="file-text" [size]="17" /></div>
 
-        <!-- Card top -->
-        <div class="card-top">
-          <div class="card-icon">📋</div>
-          <div class="card-badges">
-            <span class="badge-sev" [ngClass]="'sev-' + doc.severity">{{ doc.severity }}</span>
-            <span class="badge-status" [ngClass]="'st-' + doc.status.replace(' ', '-')">{{ doc.status }}</span>
+          <div class="card-main">
+            <div class="card-top">
+              <h3 class="card-title">{{ doc.title }}</h3>
+              <div class="card-badges">
+                <span class="badge" [class.badge--danger]="doc.severity === 'P1'"
+                      [class.badge--warn]="doc.severity === 'P2'"
+                      [class.badge--info]="doc.severity === 'P3'">{{ doc.severity }}</span>
+                <span class="badge"
+                      [class.badge--ok]="doc.status === 'Résolu'"
+                      [class.badge--warn]="doc.status === 'En cours'"
+                      [class.badge--danger]="doc.status === 'Ouvert'">{{ doc.status }}</span>
+              </div>
+            </div>
+
+            <p class="card-desc">{{ doc.description }}</p>
+
+            <div class="card-meta">
+              <span class="badge badge--neutral">{{ doc.category }}</span>
+              <span class="meta-item"><app-icon name="clock" [size]="11" /> {{ doc.date }}</span>
+              <span class="meta-item">{{ doc.size }} · {{ doc.pages }}p</span>
+              <span class="meta-item origin"><app-icon name="sparkles" [size]="11" /> {{ doc.generatedFrom }}</span>
+            </div>
+
+            <div class="card-tags">
+              <span *ngFor="let tag of doc.tags" class="tag">#{{ tag }}</span>
+            </div>
           </div>
-        </div>
 
-        <!-- Card body -->
-        <div class="card-body">
-          <h3 class="card-title">{{ doc.title }}</h3>
-          <p class="card-desc">{{ doc.description }}</p>
+          <div class="card-action"><app-icon name="chevron-right" [size]="16" /></div>
         </div>
-
-        <!-- Card meta -->
-        <div class="card-meta">
-          <span class="badge-cat">{{ doc.category }}</span>
-          <span class="card-date">📅 {{ doc.date }}</span>
-          <span class="card-size">{{ doc.size }} · {{ doc.pages }}p</span>
-        </div>
-
-        <div class="card-origin">
-          <span>🤖 Généré depuis : {{ doc.generatedFrom }}</span>
-        </div>
-
-        <!-- Tags -->
-        <div class="card-tags">
-          <span *ngFor="let tag of doc.tags" class="tag">#{{ tag }}</span>
-        </div>
-
-        <div class="card-action">Ouvrir le guide →</div>
       </div>
-    </div>
 
-    <!-- Empty state -->
-    <div *ngIf="filteredDocuments.length === 0" class="empty-state">
-      <div class="empty-icon">🔍</div>
-      <p>Aucun document ne correspond à vos filtres.</p>
-      <button class="btn btn-outline" (click)="clearFilters()">Réinitialiser les filtres</button>
-    </div>
+      <!-- Empty state -->
+      <div *ngIf="sortedDocuments.length === 0" class="empty-state">
+        <p>Aucun document ne correspond à vos filtres.</p>
+        <button class="btn btn-outline" (click)="clearFilters()">Réinitialiser les filtres</button>
+      </div>
 
+    </div><!-- /.lib-content -->
   </ng-container>
 
   <!-- ════════════════════════════════════════════
@@ -185,144 +208,161 @@
   ════════════════════════════════════════════ -->
   <ng-container *ngIf="selectedDoc">
 
-    <!-- Viewer Toolbar -->
+    <!-- Viewer Toolbar (sticky, slim) -->
     <header class="toolbar">
       <div class="toolbar-left">
-        <button class="back-btn" (click)="closeDocument()">← Bibliothèque</button>
+        <button class="btn btn-outline" (click)="closeDocument()">
+          <app-icon name="arrow-left" [size]="14" /> Bibliothèque
+        </button>
         <div class="doc-info">
           <h2>{{ selectedDoc.title }}</h2>
-          <span>PDF · {{ selectedDoc.size }} · {{ selectedDoc.pages }} pages · Généré le {{ selectedDoc.date }}</span>
+          <span>{{ selectedDoc.pages }} pages · Généré le {{ selectedDoc.date }} · ← → pour naviguer</span>
         </div>
       </div>
       <div class="toolbar-right">
-        <span class="badge-sev" [ngClass]="'sev-' + selectedDoc.severity">{{ selectedDoc.severity }}</span>
-        <span class="badge-status" [ngClass]="'st-' + selectedDoc.status.replace(' ', '-')">{{ selectedDoc.status }}</span>
+        <span class="badge" [class.badge--danger]="selectedDoc.severity === 'P1'"
+              [class.badge--warn]="selectedDoc.severity === 'P2'"
+              [class.badge--info]="selectedDoc.severity === 'P3'">{{ selectedDoc.severity }}</span>
+        <span class="badge"
+              [class.badge--ok]="selectedDoc.status === 'Résolu'"
+              [class.badge--warn]="selectedDoc.status === 'En cours'"
+              [class.badge--danger]="selectedDoc.status === 'Ouvert'">{{ selectedDoc.status }}</span>
         <div class="zoom-controls">
-          <button class="btn btn-outline" (click)="zoomOut()">−</button>
+          <button class="icon-btn" (click)="zoomOut()" title="Zoom arrière">−</button>
           <span class="zoom-level">{{ zoomLevel }}%</span>
-          <button class="btn btn-outline" (click)="zoomIn()">+</button>
+          <button class="icon-btn" (click)="zoomIn()" title="Zoom avant">+</button>
         </div>
         <div class="page-controls">
-          <button class="btn btn-outline" (click)="previousPage()" [disabled]="currentPage === 1">‹</button>
+          <button class="icon-btn" (click)="previousPage()" [disabled]="currentPage === 1"><app-icon name="chevron-left" [size]="15" /></button>
           <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
-          <button class="btn btn-outline" (click)="nextPage()" [disabled]="currentPage === totalPages">›</button>
+          <button class="icon-btn" (click)="nextPage()" [disabled]="currentPage === totalPages"><app-icon name="chevron-right" [size]="15" /></button>
         </div>
-        <button class="btn btn-outline" (click)="downloadDocument()">⬇ Télécharger</button>
-        <button class="btn btn-primary" (click)="printDocument()">🖨 Imprimer</button>
+        <button class="btn btn-primary" (click)="exportPdf()" [disabled]="exportingPdf">
+          <app-icon name="download" [size]="14" /> {{ exportingPdf ? 'Génération…' : 'PDF' }}
+        </button>
+        <button class="btn btn-outline" (click)="printDocument()" title="Imprimer">
+          <app-icon name="file-text" [size]="14" /> Imprimer
+        </button>
       </div>
     </header>
 
-    <!-- Document Page -->
-    <div class="viewer-container">
-      <div class="document-page" [style.transform]="'scale(' + (zoomLevel / 100) + ')'">
-        <div class="document-content" [ngClass]="'page-type-' + page.type">
+    <div class="reader-shell">
+      <!-- Table of contents rail -->
+      <aside class="toc-rail">
+        <div class="toc-rail-title">Sommaire</div>
+        <button *ngFor="let p of currentDocPages; let i = index"
+                class="toc-rail-item"
+                [class.active]="currentPage === i + 1"
+                (click)="goToPage(i + 1)">
+          <span class="toc-num">{{ i + 1 }}</span>
+          <span class="toc-label">{{ p.title }}</span>
+        </button>
+      </aside>
 
-          <!-- COVER -->
-          <ng-container *ngIf="page.type === 'cover'">
-            <div class="cover-page">
-              <div class="cover-logo">DXC</div>
-              <h1 class="cover-title">{{ page.title }}</h1>
-              <p class="cover-subtitle">{{ page.subtitle }}</p>
-              <div class="cover-meta">
-                <div *ngFor="let m of page.sections[0].metric" class="cover-meta-row">
-                  <span class="cover-meta-label">{{ m.label }}</span>
-                  <span class="cover-meta-value">{{ m.value }}</span>
+      <!-- Document Page -->
+      <div class="viewer-container">
+        <div class="document-page" [style.transform]="'scale(' + (zoomLevel / 100) + ')'">
+          <div class="document-content" [ngClass]="'page-type-' + page.type">
+
+            <!-- COVER -->
+            <ng-container *ngIf="page.type === 'cover'">
+              <div class="cover-page">
+                <div class="cover-logo">DXC</div>
+                <h1 class="cover-title">{{ page.title }}</h1>
+                <p class="cover-subtitle">{{ page.subtitle }}</p>
+                <div class="cover-meta">
+                  <div *ngFor="let m of page.sections[0].metric" class="cover-meta-row">
+                    <span class="cover-meta-label">{{ m.label }}</span>
+                    <span class="cover-meta-value">{{ m.value }}</span>
+                  </div>
                 </div>
+                <div class="cover-notice">{{ page.sections[1].highlight }}</div>
               </div>
-              <div class="cover-notice">{{ page.sections[1].highlight }}</div>
-            </div>
-          </ng-container>
-
-          <!-- TOC -->
-          <ng-container *ngIf="page.type === 'toc'">
-            <h1 class="page-title">{{ page.title }}</h1>
-            <hr class="title-divider"/>
-            <ol class="toc-list">
-              <li *ngFor="let item of page.sections[0].numbered" class="toc-item">{{ item }}</li>
-            </ol>
-          </ng-container>
-
-          <!-- CONTENT -->
-          <ng-container *ngIf="page.type !== 'cover' && page.type !== 'toc'">
-            <h1 class="page-title">{{ page.title }}</h1>
-            <hr class="title-divider"/>
-            <ng-container *ngFor="let section of page.sections">
-              <p *ngIf="section.text && !section.heading && !section.subheading" class="section-intro">{{ section.text }}</p>
-              <h2 *ngIf="section.heading" class="section-heading">{{ section.heading }}</h2>
-              <h3 *ngIf="section.subheading" class="section-subheading">{{ section.subheading }}</h3>
-              <p *ngIf="section.text && (section.heading || section.subheading)" class="section-text">{{ section.text }}</p>
-              <ul *ngIf="section.bullets" class="section-bullets">
-                <li *ngFor="let b of section.bullets">{{ b }}</li>
-              </ul>
-              <ol *ngIf="section.numbered" class="section-numbered">
-                <li *ngFor="let n of section.numbered">{{ n }}</li>
-              </ol>
-              <div *ngIf="section.metric" class="metric-grid">
-                <div *ngFor="let m of section.metric" class="metric-card">
-                  <div class="metric-label">{{ m.label }}</div>
-                  <div class="metric-value">{{ m.value }}</div>
-                  <div *ngIf="m.note" class="metric-note">{{ m.note }}</div>
-                </div>
-              </div>
-              <div *ngIf="section.table" class="doc-table-wrap">
-                <table class="doc-table">
-                  <thead><tr><th *ngFor="let h of section.table.headers">{{ h }}</th></tr></thead>
-                  <tbody>
-                    <tr *ngFor="let row of section.table.rows">
-                      <td *ngFor="let cell of row">{{ cell }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div *ngIf="section.highlight" class="highlight-box">{{ section.highlight }}</div>
             </ng-container>
-          </ng-container>
 
-          <div class="page-footer">
-            <span>Page {{ currentPage }} sur {{ totalPages }}</span>
-            <span>Confidentiel — DXC Technology</span>
+            <!-- TOC -->
+            <ng-container *ngIf="page.type === 'toc'">
+              <h1 class="page-title">{{ page.title }}</h1>
+              <hr class="title-divider"/>
+              <ol class="toc-list">
+                <li *ngFor="let item of page.sections[0].numbered" class="toc-item">{{ item }}</li>
+              </ol>
+            </ng-container>
+
+            <!-- CONTENT -->
+            <ng-container *ngIf="page.type !== 'cover' && page.type !== 'toc'">
+              <h1 class="page-title">{{ page.title }}</h1>
+              <hr class="title-divider"/>
+              <ng-container *ngFor="let section of page.sections">
+                <p *ngIf="section.text && !section.heading && !section.subheading" class="section-intro">{{ section.text }}</p>
+                <h2 *ngIf="section.heading" class="section-heading">{{ section.heading }}</h2>
+                <h3 *ngIf="section.subheading" class="section-subheading">{{ section.subheading }}</h3>
+                <p *ngIf="section.text && (section.heading || section.subheading)" class="section-text">{{ section.text }}</p>
+                <ul *ngIf="section.bullets" class="section-bullets">
+                  <li *ngFor="let b of section.bullets">{{ b }}</li>
+                </ul>
+                <ol *ngIf="section.numbered" class="section-numbered">
+                  <li *ngFor="let n of section.numbered">{{ n }}</li>
+                </ol>
+                <div *ngIf="section.metric" class="metric-grid">
+                  <div *ngFor="let m of section.metric" class="metric-card">
+                    <div class="metric-label">{{ m.label }}</div>
+                    <div class="metric-value">{{ m.value }}</div>
+                    <div *ngIf="m.note" class="metric-note">{{ m.note }}</div>
+                  </div>
+                </div>
+                <div *ngIf="section.table" class="doc-table-wrap">
+                  <table class="doc-table">
+                    <thead><tr><th *ngFor="let h of section.table.headers">{{ h }}</th></tr></thead>
+                    <tbody>
+                      <tr *ngFor="let row of section.table.rows">
+                        <td *ngFor="let cell of row">{{ cell }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div *ngIf="section.highlight" class="highlight-box">{{ section.highlight }}</div>
+              </ng-container>
+            </ng-container>
+
+            <div class="page-footer">
+              <span>Page {{ currentPage }} sur {{ totalPages }}</span>
+              <span>Confidentiel — DXC Technology</span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Page strip -->
-    <div class="page-strip">
-      <button *ngFor="let p of currentDocPages; let i = index"
-        class="strip-btn" [class.active]="currentPage === i + 1"
-        (click)="goToPage(i + 1)">{{ i + 1 }}
-      </button>
-    </div>
+    </div><!-- /.reader-shell -->
 
   </ng-container>
 
   <!-- ════════════════════════════════════════════
        CREATE DOCUMENT MODAL
   ════════════════════════════════════════════ -->
-  <div class="modal-overlay" *ngIf="showCreateForm" (click)="closeCreateForm()">
-    <div class="modal-panel" (click)="$event.stopPropagation()">
+  <div class="modal-backdrop" *ngIf="showCreateForm" (click)="closeCreateForm()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h2>+ Nouveau guide d'incident</h2>
-        <button class="modal-close" (click)="closeCreateForm()">✕</button>
+        <h2><app-icon name="plus" [size]="16" /> Nouveau guide d'incident</h2>
+        <button class="icon-btn" (click)="closeCreateForm()"><app-icon name="x" [size]="15" /></button>
       </div>
 
       <div class="modal-body">
         <div class="form-group">
           <label>Titre <span class="required">*</span></label>
-          <input type="text" class="form-input" [(ngModel)]="newDocForm.title"
+          <input type="text" class="field" [(ngModel)]="newDocForm.title"
             placeholder="Ex: Guide d'incident — Timeout API Gateway"/>
         </div>
 
         <div class="form-group">
           <label>Description</label>
-          <textarea class="form-textarea" [(ngModel)]="newDocForm.description" rows="3"
+          <textarea class="field" [(ngModel)]="newDocForm.description" rows="3"
             placeholder="Décrivez brièvement l'incident documenté..."></textarea>
         </div>
 
         <div class="form-row">
           <div class="form-group">
             <label>Catégorie</label>
-            <select class="form-select" [(ngModel)]="newDocForm.category">
+            <select class="field" [(ngModel)]="newDocForm.category">
               <option>Infrastructure</option>
               <option>Performance</option>
               <option>Sécurité</option>
@@ -331,7 +371,7 @@
           </div>
           <div class="form-group">
             <label>Sévérité</label>
-            <select class="form-select" [(ngModel)]="newDocForm.severity">
+            <select class="field" [(ngModel)]="newDocForm.severity">
               <option>P1</option>
               <option>P2</option>
               <option>P3</option>
@@ -339,7 +379,7 @@
           </div>
           <div class="form-group">
             <label>Statut</label>
-            <select class="form-select" [(ngModel)]="newDocForm.status">
+            <select class="field" [(ngModel)]="newDocForm.status">
               <option>Ouvert</option>
               <option>En cours</option>
               <option>Résolu</option>
@@ -350,15 +390,15 @@
         <div class="form-group">
           <label>Tags</label>
           <div class="tag-input-row">
-            <input type="text" class="form-input" [(ngModel)]="newTagInput"
+            <input type="text" class="field" [(ngModel)]="newTagInput"
               placeholder="Ex: redis, timeout, auth"
               (keydown.enter)="addTag(); $event.preventDefault()"/>
-            <button class="btn-add-tag" (click)="addTag()">Ajouter</button>
+            <button class="btn btn-outline" (click)="addTag()">Ajouter</button>
           </div>
           <div class="form-tags" *ngIf="newDocForm.tags && newDocForm.tags.length > 0">
-            <span *ngFor="let tag of newDocForm.tags" class="form-tag">
+            <span *ngFor="let tag of newDocForm.tags" class="tag removable">
               #{{ tag }}
-              <button class="remove-tag" (click)="removeTag(tag)">×</button>
+              <button class="remove-tag" (click)="removeTag(tag)"><app-icon name="x" [size]="10" /></button>
             </span>
           </div>
         </div>
@@ -375,27 +415,29 @@
   <!-- ════════════════════════════════════════════
        DRAFT REVIEW PANEL MODAL
   ════════════════════════════════════════════ -->
-  <div class="modal-overlay" *ngIf="showReviewPanel && selectedDraft" (click)="closeReviewPanel()">
-    <div class="review-panel" (click)="$event.stopPropagation()">
+  <div class="modal-backdrop" *ngIf="showReviewPanel && selectedDraft" (click)="closeReviewPanel()">
+    <div class="modal-card review-panel" (click)="$event.stopPropagation()">
 
       <div class="review-header">
         <div class="review-header-left">
-          <span class="review-icon">🔍</span>
+          <span class="review-icon"><app-icon name="file-search" [size]="17" /></span>
           <div>
             <h2 class="review-title">Révision — Guide en brouillon</h2>
             <p class="review-subtitle">Ingénieur Senior requis • Human-in-the-Loop</p>
           </div>
         </div>
-        <button class="modal-close" (click)="closeReviewPanel()">✕</button>
+        <button class="icon-btn" (click)="closeReviewPanel()"><app-icon name="x" [size]="15" /></button>
       </div>
 
       <div class="review-body">
         <!-- Draft info -->
-        <div class="review-doc-card">
+        <div class="card review-doc-card">
           <div class="review-doc-badges">
-            <span class="sev-badge" [style.background]="severityColor(selectedDraft.severity)">{{ selectedDraft.severity }}</span>
-            <span class="cat-badge">{{ selectedDraft.category }}</span>
-            <span class="occ-badge">🔁 {{ selectedDraft.occurrences }} occurrences détectées</span>
+            <span class="badge" [class.badge--danger]="selectedDraft.severity === 'P1'"
+                  [class.badge--warn]="selectedDraft.severity === 'P2'"
+                  [class.badge--info]="selectedDraft.severity === 'P3'">{{ selectedDraft.severity }}</span>
+            <span class="badge badge--neutral">{{ selectedDraft.category }}</span>
+            <span class="badge badge--accent">{{ selectedDraft.occurrences }} occurrences détectées</span>
           </div>
           <h3 class="review-doc-title">{{ selectedDraft.title }}</h3>
           <p class="review-doc-desc">{{ selectedDraft.description }}</p>
@@ -408,7 +450,7 @@
 
         <!-- Review checklist -->
         <div class="review-checklist">
-          <h4>✅ Liste de vérification avant publication</h4>
+          <h4><app-icon name="check" [size]="14" /> Liste de vérification avant publication</h4>
           <label class="check-item"><input type="checkbox"/> Le contenu est factuellement correct</label>
           <label class="check-item"><input type="checkbox"/> Les étapes de résolution sont applicables en production</label>
           <label class="check-item"><input type="checkbox"/> Les recommandations sont conformes aux politiques DXC</label>
@@ -418,8 +460,8 @@
 
         <!-- Review note -->
         <div class="review-note-section">
-          <label class="review-note-label">💬 Note de révision (requise pour les modifications / rejet)</label>
-          <textarea class="review-note-input"
+          <label class="review-note-label">Note de révision (requise pour les modifications / rejet)</label>
+          <textarea class="field"
                     rows="3"
                     [(ngModel)]="selectedDraft.reviewNote"
                     placeholder="Ex: Les commandes de la section 6 doivent être adaptées à l'environnement K8s. Merci de revoir le step 3..."></textarea>
@@ -427,14 +469,14 @@
       </div>
 
       <div class="review-footer">
-        <button class="review-btn reject" (click)="rejectDraft(selectedDraft)">
-          ❌ Rejeter
+        <button class="btn btn--danger" (click)="rejectDraft(selectedDraft)">
+          <app-icon name="x" [size]="14" /> Rejeter
         </button>
-        <button class="review-btn changes" (click)="requestChanges(selectedDraft)">
-          📝 Demander des modifications
+        <button class="btn btn-outline" (click)="requestChanges(selectedDraft)">
+          <app-icon name="pencil" [size]="14" /> Demander des modifications
         </button>
-        <button class="review-btn approve" (click)="approveDraft(selectedDraft)">
-          ✅ Approuver et publier
+        <button class="btn btn-primary" (click)="approveDraft(selectedDraft)">
+          <app-icon name="check" [size]="14" /> Approuver et publier
         </button>
       </div>
     </div>

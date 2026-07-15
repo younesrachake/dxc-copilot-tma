@@ -17,7 +17,10 @@ async def test_chat_happy_path_with_kb(user_client, fake_llm, fake_rag):
     assert "Réponse simulée" in body["reply"]
     # fake_rag returns score 0.88 → kb_primary → sources exposed + [1] mapped
     assert body["sources"] == ["tma-restart"]
-    assert body["citations"] == [{"index": 1, "source": "tma-restart"}]
+    assert body["citations"] == [{
+        "index": 1, "source": "tma-restart",
+        "snippet": "Procédure de redémarrage: systemctl restart <service>.",
+    }]
     assert body["cached"] is False
 
 
@@ -39,6 +42,35 @@ async def test_chat_jira_keyword_returns_draft(user_client, fake_rag):
     assert ticket is not None
     assert ticket["project"] == "TMA"
     assert ticket["priority"] == "Critique"
+
+
+@pytest.mark.asyncio
+async def test_chat_passes_conversation_history_to_llm(user_client, fake_rag, monkeypatch):
+    """Second turn of a session must include the first exchange as history."""
+    from app.services.llm_service import llm_service
+    captured = {}
+
+    async def capture_generate(*args, **kwargs):
+        captured["history"] = kwargs.get("history")
+        return "Réponse avec contexte."
+
+    monkeypatch.setattr(llm_service, "_available", True)
+    monkeypatch.setattr(llm_service, "generate_response", capture_generate)
+
+    first = (await user_client.post(
+        "/api/chat", data={"message": "quelle est la procédure de sauvegarde ?"}
+    )).json()
+    assert captured["history"] is None  # first turn: no history
+
+    await user_client.post(
+        "/api/chat",
+        data={"message": "et pour la restauration ?", "session_id": first["session_id"]},
+    )
+    history = captured["history"]
+    assert history is not None and len(history) == 2
+    assert history[0]["role"] == "user"
+    assert "sauvegarde" in history[0]["content"]
+    assert history[1]["role"] == "assistant"
 
 
 @pytest.mark.asyncio

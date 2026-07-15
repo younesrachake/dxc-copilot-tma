@@ -1,9 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../services/api.service';
 import { DocumentStoreService } from '../services/document-store.service';
+import { IconComponent } from '../shared/icon.component';
 
 export interface DraftGuide {
   id: number;
@@ -55,12 +56,85 @@ export interface DocSection {
 @Component({
   selector: 'app-document-viewer',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, RouterLink, FormsModule, IconComponent],
   templateUrl: './document-viewer.component.html',
   styleUrl: './document-viewer.component.scss'
 })
 export class DocumentViewerComponent implements OnInit {
+  @ViewChild('searchInput') searchInput?: ElementRef<HTMLInputElement>;
+
   constructor(private api: ApiService, private docStore: DocumentStoreService) {}
+
+  // ── View mode, sorting, keyboard shortcuts (E14/E15) ────────────
+  viewMode: 'grid' | 'list' = (localStorage.getItem('dxc-docs-view') as 'grid' | 'list') || 'grid';
+  sortBy: 'recent' | 'severity' | 'title' = 'recent';
+  exportingPdf = false;
+
+  setViewMode(mode: 'grid' | 'list'): void {
+    this.viewMode = mode;
+    localStorage.setItem('dxc-docs-view', mode);
+  }
+
+  get sortedDocuments(): IncidentDoc[] {
+    const docs = [...this.filteredDocuments];
+    const parseDate = (d: string) => {
+      const [dd, mm, yy] = d.split('/');
+      return new Date(`${yy}-${mm}-${dd}`).getTime() || 0;
+    };
+    switch (this.sortBy) {
+      case 'severity': return docs.sort((a, b) => a.severity.localeCompare(b.severity));
+      case 'title':    return docs.sort((a, b) => a.title.localeCompare(b.title, 'fr'));
+      default:         return docs.sort((a, b) => parseDate(b.date) - parseDate(a.date));
+    }
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onKeydown(event: KeyboardEvent): void {
+    const inField = ['INPUT', 'TEXTAREA', 'SELECT'].includes((event.target as HTMLElement)?.tagName);
+    if (this.selectedDoc && !inField) {
+      if (event.key === 'ArrowLeft') { this.previousPage(); event.preventDefault(); }
+      if (event.key === 'ArrowRight') { this.nextPage(); event.preventDefault(); }
+      if (event.key === 'Escape') { this.closeDocument(); }
+    } else if (!this.selectedDoc && event.key === '/' && !inField) {
+      event.preventDefault();
+      this.searchInput?.nativeElement.focus();
+    }
+  }
+
+  /** Real formatted PDF export of the open document (reuses pdf_service). */
+  async exportPdf(): Promise<void> {
+    const doc = this.selectedDoc;
+    if (!doc || this.exportingPdf) return;
+    this.exportingPdf = true;
+    try {
+      const sections = this.currentDocPages.map(page => ({
+        heading: page.title,
+        content: page.sections.map(s => [
+          s.heading, s.subheading, s.text,
+          ...(s.bullets || []).map(b => `• ${b}`),
+          ...(s.numbered || []).map((n, i) => `${i + 1}. ${n}`),
+          s.highlight,
+        ].filter(Boolean).join('\n')).join('\n'),
+      }));
+      const blob = await this.api.fetchPdf('/api/chat/document-pdf', {
+        title: doc.title,
+        meta: {
+          'Catégorie': doc.category, 'Sévérité': doc.severity,
+          'Statut': doc.status, 'Date': doc.date, 'Source': doc.generatedFrom,
+        },
+        sections,
+      });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${doc.title.replace(/[^a-z0-9]/gi, '_').substring(0, 60)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      this.downloadDocument(); // text fallback
+    } finally {
+      this.exportingPdf = false;
+    }
+  }
 
   loading = false;
   error = '';

@@ -15,6 +15,9 @@
         </div>
       </div>
       <div class="header-right">
+        <button class="icon-btn" *ngIf="messages.length" (click)="exportConversation()" title="Exporter la conversation (Markdown)">
+          <app-icon name="download" [size]="17" />
+        </button>
         <button class="icon-btn" (click)="attachFile()" title="Joindre un fichier">
           <app-icon name="paperclip" [size]="17" />
         </button>
@@ -81,10 +84,33 @@
           <!-- Bubble + attachments -->
           <div class="message-content">
 
-            <!-- Text -->
-            <div class="message-text" [class.streaming]="isStreaming(message.id)">
-              {{ getDisplayText(message) }}<span class="stream-cursor" *ngIf="isStreaming(message.id)">▊</span>
+            <!-- ── Agent reasoning timeline ── -->
+            <div class="agent-timeline" *ngIf="message.agentSteps && message.agentSteps.length"
+                 [class.collapsed]="message.stepsCollapsed">
+              <button class="timeline-header" (click)="toggleSteps(message)">
+                <app-icon name="sparkles" [size]="12" />
+                <span>Raisonnement — {{ message.agentSteps.length }} étape{{ message.agentSteps.length > 1 ? 's' : '' }}</span>
+                <app-icon [name]="message.stepsCollapsed ? 'chevron-down' : 'chevron-up'" [size]="13" />
+              </button>
+              <div class="timeline-steps" *ngIf="!message.stepsCollapsed">
+                <div class="timeline-step" *ngFor="let step of message.agentSteps"
+                     [class.active]="!step.done">
+                  <span class="step-icon">
+                    <app-icon *ngIf="step.done" name="check" [size]="11" />
+                    <span *ngIf="!step.done" class="step-spinner"></span>
+                  </span>
+                  <span class="step-label">{{ step.label }}</span>
+                </div>
+              </div>
             </div>
+
+            <!-- Text: raw while streaming, markdown once complete -->
+            <div class="message-text" *ngIf="message.sender === 'bot' && isStreaming(message.id)" [class.streaming]="true">
+              {{ getDisplayText(message) }}<span class="stream-cursor">▊</span>
+            </div>
+            <div class="message-text md" *ngIf="message.sender === 'bot' && !isStreaming(message.id)"
+                 [innerHTML]="getDisplayText(message) | markdownLite"></div>
+            <div class="message-text" *ngIf="message.sender === 'user'">{{ message.text }}</div>
 
             <!-- ── Attachments (user uploads) ── -->
             <div class="message-attachments" *ngIf="message.attachments && message.attachments.length">
@@ -174,11 +200,16 @@
               <span class="source-tag" *ngFor="let s of message.sources">{{ s }}</span>
             </div>
 
-            <!-- ── Inline Citations ([n] markers → sources) ── -->
+            <!-- ── Inline Citations ([n] markers → sources, hover = excerpt) ── -->
             <div class="msg-citations" *ngIf="message.citations && message.citations.length">
-              <span class="citation-chip" *ngFor="let c of message.citations"
-                    [title]="'Source : ' + c.source">
-                <sup>[{{ c.index }}]</sup> {{ c.source }}
+              <span class="citation-wrap" *ngFor="let c of message.citations">
+                <span class="citation-chip">
+                  <sup>[{{ c.index }}]</sup> {{ c.source }}
+                </span>
+                <span class="citation-card" *ngIf="c.snippet">
+                  <span class="cc-source"><app-icon name="database" [size]="11" /> {{ c.source }}</span>
+                  <span class="cc-snippet">« {{ c.snippet }}… »</span>
+                </span>
               </span>
             </div>
 
@@ -204,6 +235,13 @@
                       (click)="giveFeedback(message, 'down')" title="Mauvaise réponse"><app-icon name="thumbs-down" [size]="14" /></button>
               <span class="fb-label up" *ngIf="message.feedback === 'up'">Merci !</span>
               <span class="fb-label down" *ngIf="message.feedback === 'down'">Signalé</span>
+              <!-- Read aloud (TTS) -->
+              <button class="fb-btn" *ngIf="tts.supported"
+                      [class.active-up]="tts.isSpeaking(message.id)"
+                      (click)="toggleSpeak(message)"
+                      [title]="tts.isSpeaking(message.id) ? 'Arrêter la lecture' : 'Lire à voix haute'">
+                <app-icon [name]="tts.isSpeaking(message.id) ? 'circle-stop' : 'volume-2'" [size]="14" />
+              </button>
               <!-- Save as document button -->
               <div class="fb-separator"></div>
               <button class="fb-btn save-doc-btn"
@@ -229,6 +267,14 @@
               <div class="shimmer-line w-90"></div>
             </div>
           </div>
+        </div>
+
+        <!-- ── Follow-up suggestion chips ── -->
+        <div class="followup-chips" *ngIf="followups.length && !isLoading">
+          <span class="followup-label">Suggestions :</span>
+          <button class="followup-chip" *ngFor="let f of followups" (click)="useFollowup(f)">
+            {{ f }}
+          </button>
         </div>
 
         <div #messagesEnd></div>

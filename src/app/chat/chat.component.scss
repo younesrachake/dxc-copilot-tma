@@ -289,6 +289,114 @@
 }
 @keyframes cursor-blink { 50% { opacity: 0; } }
 
+/* Markdown-rendered bot content */
+.message-text.md {
+  white-space: normal;
+
+  p { margin: 0 0 2px; color: var(--ink-1); }
+  .md-h { font-weight: 650; margin: 8px 0 4px; }
+  .md-gap { display: block; height: 8px; }
+  ol, ul { margin: 4px 0 6px; padding-left: 22px; }
+  li { margin: 3px 0; color: var(--ink-1); }
+  code {
+    background: var(--bg-inset);
+    border: 1px solid var(--border-soft);
+    padding: 1px 6px;
+    border-radius: 5px;
+    font-family: ui-monospace, monospace;
+    font-size: 0.8rem;
+  }
+  strong { font-weight: 650; }
+}
+
+/* ── Agent reasoning timeline ───────────────────────────────────── */
+.agent-timeline {
+  margin-bottom: 7px;
+  border: 1px solid var(--accent-ring);
+  background: var(--accent-soft);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  max-width: 420px;
+
+  .timeline-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    color: var(--accent-ink);
+    font-size: 0.74rem;
+    font-weight: 650;
+    cursor: pointer;
+
+    span:first-of-type { flex: 1; text-align: left; }
+  }
+
+  .timeline-steps { padding: 2px 12px 10px; }
+
+  .timeline-step {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 4px 0;
+    font-size: 0.76rem;
+    color: var(--ink-2);
+
+    &.active { color: var(--ink-1); font-weight: 550; }
+
+    .step-icon {
+      width: 16px; height: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ok);
+      flex-shrink: 0;
+    }
+
+    .step-spinner {
+      width: 10px; height: 10px;
+      border: 2px solid var(--accent-ring);
+      border-top-color: var(--accent-ink);
+      border-radius: 50%;
+      animation: step-spin 0.8s linear infinite;
+    }
+  }
+}
+
+@keyframes step-spin { to { transform: rotate(360deg); } }
+
+/* ── Follow-up suggestion chips ─────────────────────────────────── */
+.followup-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 2px 4px 6px 39px;   /* aligns under bot bubble (avatar offset) */
+  animation: followups-in 0.3s var(--ease-spring);
+
+  .followup-label { font-size: 0.7rem; color: var(--ink-3); }
+
+  .followup-chip {
+    padding: 6px 13px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--accent-ring);
+    background: var(--bg-surface);
+    color: var(--accent-ink);
+    font-size: 0.76rem;
+    cursor: pointer;
+    transition: background 0.14s ease, transform 0.14s var(--ease-spring);
+
+    &:hover { background: var(--accent-soft); transform: translateY(-1px); }
+  }
+}
+
+@keyframes followups-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .message-time {
   font-size: 0.66rem;
   color: var(--ink-3);
@@ -540,6 +648,48 @@
   white-space: nowrap;
 }
 .citation-chip { cursor: help; sup { font-weight: 700; } }
+
+/* Citation hover-card: the KB excerpt backing the claim */
+.citation-wrap {
+  position: relative;
+  display: inline-block;
+
+  .citation-card {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    z-index: 40;
+    width: 300px;
+    padding: 11px 13px;
+    border-radius: var(--radius-md);
+    background: var(--bg-raised);
+    border: 1px solid var(--border-1);
+    box-shadow: var(--shadow-3);
+    flex-direction: column;
+    gap: 6px;
+    white-space: normal;
+
+    .cc-source {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.68rem;
+      font-weight: 650;
+      color: var(--accent-ink);
+      font-family: ui-monospace, monospace;
+    }
+
+    .cc-snippet {
+      font-size: 0.74rem;
+      line-height: 1.5;
+      color: var(--ink-2);
+      font-style: italic;
+    }
+  }
+
+  &:hover .citation-card { display: flex; }
+}
 
 .quality-badge {
   display: inline-flex;

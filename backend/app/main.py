@@ -89,8 +89,10 @@ async def _session_cleanup_loop():
 
 
 async def _agent_scheduler_loop():
-    """Background task: run the knowledge sync agent when its interval is due."""
+    """Background task: hourly wake — knowledge sync (when due), anomaly sweep,
+    and the daily admin digest (when due)."""
     from app.services.agent_service import knowledge_sync_agent
+    from app.services.anomaly_service import check_anomalies
     await asyncio.sleep(30)  # let startup seeding finish before the first run
     while True:
         try:
@@ -98,6 +100,16 @@ async def _agent_scheduler_loop():
                 await knowledge_sync_agent.run_if_due(db)
         except Exception as exc:
             logger.warning("Knowledge sync agent error: %s", exc)
+        try:
+            async with async_session() as db:
+                await check_anomalies(db)
+        except Exception as exc:
+            logger.warning("Anomaly sweep error: %s", exc)
+        try:
+            async with async_session() as db:
+                await knowledge_sync_agent.run_digest_if_due(db)
+        except Exception as exc:
+            logger.warning("Daily digest error: %s", exc)
         await asyncio.sleep(3600)  # wake hourly, run only when due
 
 
