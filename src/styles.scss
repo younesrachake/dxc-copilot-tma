@@ -560,9 +560,17 @@ body.dark-mode {
     &.active { background: var(--accent-soft) !important; color: var(--accent-ink) !important; }
   }
   .settings-content { background: var(--bg-app) !important; }
+  /* The settings cards hardcode a white bg — darken them so their (light) titles stay legible */
+  .settings-content .card {
+    background: var(--bg-surface) !important;
+    border-color: var(--border-soft) !important;
+  }
   .card-title { color: var(--ink-1) !important; border-bottom-color: var(--border-1) !important; }
   .section-header h2 { color: var(--ink-1) !important; }
   .section-header p  { color: var(--ink-2) !important; }
+  /* Toggle-row descriptive text + labels on the darkened cards */
+  .toggle-row .toggle-label { color: var(--ink-1) !important; }
+  .toggle-row .toggle-desc  { color: var(--ink-2) !important; }
 
   input[type="text"], input[type="email"], input[type="url"], input[type="password"],
   input[type="number"], input[type="time"], select, textarea {
