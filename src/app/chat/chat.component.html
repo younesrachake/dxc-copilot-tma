@@ -178,6 +178,38 @@
               </div>
             </div>
 
+            <!-- ── Integration action confirmation card ── -->
+            <div class="action-card" *ngIf="message.pendingAction"
+                 [class.done]="message.pendingAction.status === 'done'"
+                 [class.error]="message.pendingAction.status === 'error'">
+              <div class="action-head">
+                <span class="action-icon"><app-icon [name]="message.pendingAction.icon" [size]="16" /></span>
+                <div class="action-text">
+                  <strong>{{ message.pendingAction.connector_name }}</strong>
+                  <span>{{ message.pendingAction.summary }}</span>
+                </div>
+              </div>
+
+              <!-- pending → confirm/cancel -->
+              <div class="action-buttons" *ngIf="!message.pendingAction.status || message.pendingAction.status === 'pending'">
+                <button class="ac-btn cancel" (click)="dismissAction(message)">Annuler</button>
+                <button class="ac-btn confirm" (click)="confirmAction(message)">
+                  <app-icon name="check" [size]="14" /> Confirmer l'action
+                </button>
+              </div>
+              <div class="action-status running" *ngIf="message.pendingAction.status === 'running'">
+                <span class="ac-spinner"></span> Exécution en cours…
+              </div>
+              <div class="action-status ok" *ngIf="message.pendingAction.status === 'done' && message.pendingAction.result">
+                <app-icon name="check" [size]="14" />
+                <span>{{ actionResultLabel(message.pendingAction) }}</span>
+                <a *ngIf="actionResultUrl(message.pendingAction)" [href]="actionResultUrl(message.pendingAction)" target="_blank" class="ac-link">Ouvrir ↗</a>
+              </div>
+              <div class="action-status err" *ngIf="message.pendingAction.status === 'error'">
+                <app-icon name="triangle-alert" [size]="14" /> {{ message.pendingAction.error }}
+              </div>
+            </div>
+
             <!-- ── RG2 Guide Card ── -->
             <div class="guide-card" *ngIf="message.guideCard">
               <div class="guide-card-header">

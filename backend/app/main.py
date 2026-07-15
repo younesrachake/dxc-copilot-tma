@@ -18,6 +18,7 @@ from app.core.database import init_db, async_session
 from app.core.config import validate_config, CORS_ORIGINS, SESSION_TTL_DAYS, ENV, SENTRY_DSN
 from app.models.db import User, IncidentGuide, MaintenanceTask, Session as ChatSession
 from app.api import auth, chat, admin, feedback, jira, terminal, agent
+from app.api import integrations
 
 # ── Sentry error tracking (optional) ─────────────────────────────
 if SENTRY_DSN:
@@ -317,6 +318,8 @@ app.include_router(feedback.router)
 app.include_router(jira.router)
 app.include_router(terminal.router)
 app.include_router(agent.router)
+app.include_router(integrations.admin_router)
+app.include_router(integrations.user_router)
 
 
 

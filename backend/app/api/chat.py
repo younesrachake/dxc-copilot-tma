@@ -468,6 +468,7 @@ async def chat(
 
     # ── Generate: agent loop for incident/jira intents, else single shot ──
     jira_ticket = None
+    pending_action = None
     citation_docs: Optional[List[str]] = None
     if use_agent:
         agent_result = await chat_agent_service.run(
@@ -477,6 +478,8 @@ async def chat(
         )
         bot_reply = agent_result["reply"]
         jira_ticket = agent_result["jira_ticket"]
+        pending_actions = agent_result.get("pending_actions") or []
+        pending_action = pending_actions[0] if pending_actions else None
         # KB attribution comes from the agent's own search_kb calls
         if agent_result["sources"]:
             context_docs = None  # docs already consumed inside the loop
@@ -570,6 +573,7 @@ async def chat(
         grounded=grounded,
         intent=intent,
         session_title=session_title,
+        pending_action=pending_action,
     )
 
 
@@ -654,6 +658,7 @@ async def chat_stream(
             guide_card = await _track_incident(db, detected_type, is_incident)
 
             jira_ticket = None
+            pending_action = None
             citation_docs: Optional[List[str]] = None
             chunks: List[str] = []
 
@@ -707,6 +712,7 @@ async def chat_stream(
                     "intent": intent,
                     "cached": False,
                     "session_title": session_title,
+                    "pending_action": pending_action,
                 }
 
             try:
@@ -728,6 +734,8 @@ async def chat_stream(
                     agent_result = await agent_task
                     bot_reply_raw = agent_result["reply"]
                     jira_ticket = agent_result["jira_ticket"]
+                    _pending = agent_result.get("pending_actions") or []
+                    pending_action = _pending[0] if _pending else None
                     if agent_result["sources"]:
                         context_docs = None
                         context_sources = agent_result["sources"]

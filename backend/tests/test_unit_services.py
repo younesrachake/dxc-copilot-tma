@@ -142,7 +142,8 @@ def test_salvage_parses_groq_tool_use_failed():
         "Error code: 400 - {'error': {'code': 'tool_use_failed', 'failed_generation': "
         "'<function=search_kb>{\"query\": \"panne redis\"}</function>'}}"
     )
-    msg = ChatAgentService._salvage_failed_tool_call(err)
+    known = {"search_kb", "draft_jira_ticket"}
+    msg = ChatAgentService._salvage_failed_tool_call(err, known)
     assert msg is not None
     call = msg.tool_calls[0]
     assert call.function.name == "search_kb"
@@ -150,6 +151,7 @@ def test_salvage_parses_groq_tool_use_failed():
 
 
 def test_salvage_rejects_unknown_tool_and_unrelated_errors():
+    known = {"search_kb", "draft_jira_ticket"}
     unknown = Exception("tool_use_failed ... '<function=rm_rf>{\"path\": \"/\"}</function>'")
-    assert ChatAgentService._salvage_failed_tool_call(unknown) is None
-    assert ChatAgentService._salvage_failed_tool_call(Exception("timeout")) is None
+    assert ChatAgentService._salvage_failed_tool_call(unknown, known) is None
+    assert ChatAgentService._salvage_failed_tool_call(Exception("timeout"), known) is None

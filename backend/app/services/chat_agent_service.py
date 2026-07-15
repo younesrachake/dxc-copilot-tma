@@ -21,6 +21,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.connectors import registry
 from app.models.db import Incident, Message
 from app.services.llm_service import llm_service, SYSTEM_PROMPT
 from app.services.rag_service import rag_service
@@ -130,6 +131,14 @@ class ChatAgentService:
         on_step: optional sync callable({"tool", "label"}) fired before each
         tool execution — feeds the live reasoning timeline in the UI."""
         sanitized = llm_service.sanitize_input(message)
+
+        # Auto-load tools from enabled integration connectors (Jira, Slack, …)
+        try:
+            conn_schemas, conn_index = await registry.agent_tools(db)
+        except Exception as e:
+            logger.warning("Connector tools unavailable: %s", e)
+            conn_schemas, conn_index = [], {}
+
         state = {
             "jira_ticket": None,
             "sources": [],
@@ -139,9 +148,24 @@ class ChatAgentService:
             "kb_on": kb_on,
             "session_id": session_id,
             "on_step": on_step,
+            "conn_index": conn_index,
+            "pending_actions": [],
         }
 
-        messages = [{"role": "system", "content": SYSTEM_PROMPT + AGENT_INSTRUCTIONS}]
+        instructions = AGENT_INSTRUCTIONS
+        if conn_schemas:
+            instructions += (
+                "\n\nDes intégrations externes sont connectées (Jira, ServiceNow, Slack, etc.). "
+                "Tu peux appeler leurs outils de LECTURE librement (recherche, statut). "
+                "Pour une action d'ÉCRITURE (créer un ticket, publier un message, déclencher une "
+                "alerte), l'utilisateur devra confirmer via une carte affichée dans l'interface : "
+                "appelle simplement l'outil, puis confirme-lui en une phrase que l'action est prête "
+                "à être validée."
+            )
+        tools_for_llm = TOOLS_SCHEMA + conn_schemas
+        known_names = {t["function"]["name"] for t in tools_for_llm}
+
+        messages = [{"role": "system", "content": SYSTEM_PROMPT + instructions}]
         if file_context:
             messages.append({"role": "system", "content": f"Contenu du fichier joint:\n{file_context[:3000]}"})
         messages.append({"role": "user", "content": sanitized})
@@ -155,12 +179,12 @@ class ChatAgentService:
                 break
             try:
                 msg = await llm_service.chat_completion(
-                    messages, tools=TOOLS_SCHEMA, timeout=min(remaining, 45.0)
+                    messages, tools=tools_for_llm, timeout=min(remaining, 45.0)
                 )
             except Exception as e:
                 # llama tool-calling flakiness: Groq rejects malformed tool syntax
                 # with a 400 whose payload contains the intended call — salvage it.
-                msg = self._salvage_failed_tool_call(e)
+                msg = self._salvage_failed_tool_call(e, known_names)
                 if msg is None:
                     logger.error("Agent loop LLM call failed (iteration %d): %s", iteration, e)
                     break
@@ -221,10 +245,11 @@ class ChatAgentService:
             "scores": state["scores"],
             "docs_by_source": state["docs_by_source"],
             "tool_trace": state["tool_trace"],
+            "pending_actions": state["pending_actions"],
         }
 
     @staticmethod
-    def _salvage_failed_tool_call(error: Exception):
+    def _salvage_failed_tool_call(error: Exception, known_names: set):
         """Extract the intended tool call from a Groq `tool_use_failed` error.
 
         llama sometimes emits `<function=name>{args}</function>` instead of the
@@ -244,8 +269,7 @@ class ChatAgentService:
                 json.loads(raw_args)
             except json.JSONDecodeError:
                 return None
-        known = {t["function"]["name"] for t in TOOLS_SCHEMA}
-        if name not in known:
+        if name not in known_names:
             return None
         return SimpleNamespace(
             content="",
@@ -282,10 +306,34 @@ class ChatAgentService:
                 return await self._tool_session_context(args, db, state["session_id"])
             if name == "draft_jira_ticket":
                 return self._tool_draft_jira(args, state)
+            # Integration connector tools (auto-loaded when enabled)
+            if name in state.get("conn_index", {}):
+                return await self._tool_connector(name, args, state)
             return f"Erreur: outil inconnu '{name}'."
         except Exception as e:
             logger.warning("Tool %s failed: %s", name, e)
             return f"Erreur lors de l'exécution de {name}: {e}"
+
+    async def _tool_connector(self, name: str, args: dict, state: dict) -> str:
+        """Read tools run inline; write tools are gated behind a confirmation card."""
+        connector, tool, cfg = state["conn_index"][name]
+        if tool.kind == "read":
+            result = await tool.handler(cfg, args)
+            return json.dumps(result, ensure_ascii=False)[:MAX_TOOL_OUTPUT_CHARS]
+        # write: propose a confirmation card instead of executing
+        summary = tool.summarize(args) if tool.summarize else f"Action {name}"
+        state["pending_actions"].append({
+            "connector": connector.key,
+            "connector_name": connector.name,
+            "icon": connector.icon,
+            "tool": name,
+            "args": args,
+            "summary": summary,
+        })
+        return (
+            f"Une carte de confirmation a été préparée pour : {summary}. "
+            "L'utilisateur doit la valider dans l'interface. Confirme-lui que l'action est prête."
+        )
 
     async def _tool_search_kb(self, args: dict, state: dict) -> str:
         if not state["kb_on"]:

@@ -32,6 +32,16 @@ export interface ChatApiResponse {
   intent?: string;
   cached?: boolean;
   session_title?: string | null;
+  pending_action?: PendingAction | null;
+}
+
+export interface PendingAction {
+  connector: string;
+  connector_name: string;
+  icon: string;
+  tool: string;
+  args: any;
+  summary: string;
 }
 
 export interface ChatStreamHandlers {
@@ -234,6 +244,27 @@ export class ApiService {
       }
     })();
     return controller;
+  }
+
+  // ── Integrations (connectors) ────────────────────────────
+  getIntegrations(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/api/admin/integrations`, { withCredentials: true })
+      .pipe(catchError(this.handleError));
+  }
+
+  saveIntegration(key: string, data: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/api/admin/integrations/${key}`, data, { withCredentials: true })
+      .pipe(catchError(this.handleError));
+  }
+
+  testIntegration(key: string): Observable<any> {
+    return this.http.post(`${this.baseUrl}/api/admin/integrations/${key}/test`, {}, { withCredentials: true })
+      .pipe(catchError(this.handleError));
+  }
+
+  executeIntegrationAction(tool: string, args: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/api/integrations/execute`, { tool, args }, { withCredentials: true })
+      .pipe(catchError(this.handleError));
   }
 
   // ── PDF downloads (real formatted PDFs) ──────────────────

@@ -6,7 +6,7 @@ import { IntegrationManagerService } from '../core/integrations/integration-mana
 import { ChatStoreService } from '../services/chat-store.service';
 import { ApiService } from '../services/api.service';
 import { DocumentStoreService } from '../services/document-store.service';
-import { Artifact, TerminalCmd, JiraTicketDraft, ChatMessage, AttachedFile, GuideCard } from '../models/chat.models';
+import { Artifact, TerminalCmd, JiraTicketDraft, ChatMessage, AttachedFile, GuideCard, PendingAction } from '../models/chat.models';
 import { IconComponent } from '../shared/icon.component';
 import { MarkdownLitePipe } from '../shared/markdown.pipe';
 import { TtsService } from '../services/tts.service';
@@ -187,6 +187,39 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
 
   toggleSteps(msg: ChatMessage): void {
     msg.stepsCollapsed = !msg.stepsCollapsed;
+  }
+
+  // ── Integration action confirmation (write actions from the AI) ──
+  confirmAction(msg: ChatMessage): void {
+    const action = msg.pendingAction;
+    if (!action || action.status === 'running' || action.status === 'done') return;
+    action.status = 'running';
+    this.api.executeIntegrationAction(action.tool, action.args).subscribe({
+      next: (res) => {
+        action.status = 'done';
+        action.result = res.result;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        action.status = 'error';
+        action.error = err.message;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  dismissAction(msg: ChatMessage): void {
+    if (msg.pendingAction) msg.pendingAction.status = 'done';
+  }
+
+  actionResultUrl(action: PendingAction): string | null {
+    const r = action.result || {};
+    return r.url || null;
+  }
+
+  actionResultLabel(action: PendingAction): string {
+    const r = action.result || {};
+    return r.key || r.number || r.status || 'Action effectuée';
   }
 
   ngOnInit(): void {
@@ -602,6 +635,7 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
           if (res.citations?.length) bot.citations = res.citations;
           if (res.grounded !== undefined && res.grounded !== null) bot.grounded = res.grounded;
           if (res.cached) bot.cached = true;
+          if (res.pending_action) bot.pendingAction = { ...res.pending_action, status: 'pending' };
           // Backend-detected Jira intent → attach pre-filled draft (opens the Jira modal)
           if (res.jira_ticket) {
             bot.jiraTicket = {
@@ -718,6 +752,7 @@ export class ChatComponent implements OnInit, AfterViewChecked, OnDestroy {
         if (meta.citations?.length) bot.citations = meta.citations;
         if (meta.grounded !== undefined && meta.grounded !== null) bot.grounded = meta.grounded;
         if (meta.cached) bot.cached = true;
+        if (meta.pending_action) bot.pendingAction = { ...meta.pending_action, status: 'pending' };
         if (meta.jira_ticket) {
           bot.jiraTicket = {
             summary:     meta.jira_ticket.summary || '',

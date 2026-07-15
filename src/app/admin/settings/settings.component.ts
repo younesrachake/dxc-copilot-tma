@@ -2,11 +2,12 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
+import { IconComponent } from '../../shared/icon.component';
 
 @Component({
   selector: 'app-admin-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, IconComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss'
 })
@@ -15,9 +16,50 @@ export class AdminSettingsComponent implements OnInit {
   savedFeedback = '';
   notifPreview: 'none' | 'teams' | 'slack' = 'none';
 
+  // ── Integration connectors (data-driven) ────────────────────────
+  connectors: any[] = [];
+  connectorsLoading = false;
+
   constructor(private api: ApiService) {}
 
+  loadConnectors(): void {
+    this.connectorsLoading = true;
+    this.api.getIntegrations().subscribe({
+      next: (res) => { this.connectors = res.connectors || []; this.connectorsLoading = false; },
+      error: () => { this.connectorsLoading = false; }
+    });
+  }
+
+  saveConnector(c: any, explicit = false): void {
+    c.saving = true;
+    const payload = { enabled: c.enabled, ...c.config };
+    this.api.saveIntegration(c.key, payload).subscribe({
+      next: (r) => {
+        c.saving = false;
+        c.configured = r.configured;
+        if (explicit) { this.savedFeedback = `${c.name} enregistré.`; setTimeout(() => this.savedFeedback = '', 3000); }
+      },
+      error: (e) => { c.saving = false; this.savedFeedback = 'Erreur : ' + e.message; }
+    });
+  }
+
+  testConnector(c: any): void {
+    c.testing = true;
+    c.testResult = null;
+    // Persist current field values before testing
+    this.api.saveIntegration(c.key, { enabled: c.enabled, ...c.config }).subscribe({
+      next: () => {
+        this.api.testIntegration(c.key).subscribe({
+          next: (r) => { c.testing = false; c.testResult = r; },
+          error: (e) => { c.testing = false; c.testResult = { ok: false, detail: e.message }; }
+        });
+      },
+      error: (e) => { c.testing = false; c.testResult = { ok: false, detail: e.message }; }
+    });
+  }
+
   ngOnInit(): void {
+    this.loadConnectors();
     this.api.getAdminSettings().subscribe({
       next: (res: any) => {
         const s = res.settings || {};

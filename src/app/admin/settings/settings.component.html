@@ -657,72 +657,65 @@
     <section *ngIf="activeSection === 'integrations'">
       <div class="section-header">
         <h2>🔗 Intégrations</h2>
-        <p>Connexion aux outils tiers et gestion des clés API.</p>
+        <p>Connectez vos outils : une fois activés, l'assistant IA peut les utiliser directement dans le chat.</p>
       </div>
 
-      <div class="card">
-        <h3 class="card-title">Clés API DXC Copilot</h3>
-        <div class="api-key-row">
-          <span class="key-label">Clé publique</span>
-          <code class="key-value">{{ integrations.apiKeyPublic }}</code>
-          <button class="btn-secondary small" (click)="regenerateApiKey('public')" [disabled]="regenLoading === 'public'">
-            {{ regenLoading === 'public' ? '⏳…' : '🔄 Regénérer' }}
-          </button>
-        </div>
-        <div class="api-key-row">
-          <span class="key-label">Clé secrète</span>
-          <code class="key-value">{{ integrations.apiKeySecret }}</code>
-          <button class="btn-secondary small" (click)="regenerateApiKey('secret')" [disabled]="regenLoading === 'secret'">
-            {{ regenLoading === 'secret' ? '⏳…' : '🔄 Regénérer' }}
-          </button>
-        </div>
-        <div class="form-grid" style="margin-top:16px">
-          <div class="form-group"><label>Rate limit API (req/heure)</label><input type="number" [(ngModel)]="integrations.apiRateLimit" /></div>
-          <div class="form-group"><label>Version API</label><select [(ngModel)]="integrations.apiVersion"><option value="v1">v1</option><option value="v2">v2</option></select></div>
-        </div>
-      </div>
+      <div *ngIf="connectorsLoading" class="conn-loading">Chargement des connecteurs…</div>
 
-      <div class="card">
-        <h3 class="card-title">Jira</h3>
-        <div class="toggle-list"><div class="toggle-row"><div><span class="toggle-label">Activer Jira</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="integrations.jiraEnabled" /><span class="slider"></span></label></div></div>
-        <div class="form-grid" style="margin-top:16px" *ngIf="integrations.jiraEnabled">
-          <div class="form-group"><label>URL Jira</label><input type="url" [(ngModel)]="integrations.jiraUrl" /></div>
-          <div class="form-group"><label>API Token</label><input type="password" [(ngModel)]="integrations.jiraToken" /></div>
-          <div class="form-group"><label>Clé de projet</label><input type="text" [(ngModel)]="integrations.jiraProject" /></div>
+      <div class="connector-card card" *ngFor="let c of connectors">
+        <div class="connector-head">
+          <div class="connector-id">
+            <span class="connector-icon"><app-icon [name]="c.icon" [size]="18" /></span>
+            <div>
+              <div class="connector-name">
+                {{ c.name }}
+                <span class="conn-status" [class.on]="c.configured" [class.off]="!c.configured">
+                  {{ c.configured ? 'Configuré' : 'Non configuré' }}
+                </span>
+              </div>
+              <div class="connector-desc">{{ c.description }}</div>
+            </div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" [(ngModel)]="c.enabled" (change)="saveConnector(c)" />
+            <span class="slider"></span>
+          </label>
         </div>
-      </div>
 
-      <div class="card">
-        <h3 class="card-title">ServiceNow</h3>
-        <div class="toggle-list"><div class="toggle-row"><div><span class="toggle-label">Activer ServiceNow</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="integrations.serviceNowEnabled" /><span class="slider"></span></label></div></div>
-        <div class="form-grid" style="margin-top:16px" *ngIf="integrations.serviceNowEnabled">
-          <div class="form-group"><label>Instance</label><input type="text" [(ngModel)]="integrations.serviceNowInstance" /></div>
-          <div class="form-group"><label>Utilisateur</label><input type="text" [(ngModel)]="integrations.serviceNowUser" /></div>
-          <div class="form-group"><label>Mot de passe</label><input type="password" [(ngModel)]="integrations.serviceNowPassword" /></div>
+        <div class="connector-body" *ngIf="c.enabled">
+          <div class="form-grid">
+            <div class="form-group" *ngFor="let f of c.config_fields"
+                 [class.full-width]="c.config_fields.length === 1">
+              <label>{{ f.label }}<span class="required" *ngIf="f.required"> *</span></label>
+              <input [type]="f.type === 'password' ? 'password' : (f.type === 'number' ? 'number' : (f.type === 'url' ? 'url' : 'text'))"
+                     [placeholder]="f.placeholder"
+                     [(ngModel)]="c.config[f.key]" />
+              <span class="field-help" *ngIf="f.help">{{ f.help }}</span>
+            </div>
+          </div>
+
+          <div class="connector-tools" *ngIf="c.tools?.length">
+            <span class="tools-label">Outils IA :</span>
+            <span class="tool-chip" *ngFor="let t of c.tools"
+                  [class.write]="t.kind === 'write'" [title]="t.description">
+              <app-icon [name]="t.kind === 'write' ? 'pencil' : 'search'" [size]="10" /> {{ t.name }}
+            </span>
+          </div>
+
+          <div class="connector-actions">
+            <button class="btn btn-outline" (click)="testConnector(c)" [disabled]="c.testing">
+              <app-icon name="zap" [size]="13" /> {{ c.testing ? 'Test…' : 'Tester la connexion' }}
+            </button>
+            <button class="btn btn-primary" (click)="saveConnector(c, true)" [disabled]="c.saving">
+              <app-icon name="check" [size]="13" /> Enregistrer
+            </button>
+            <span class="conn-test-result" *ngIf="c.testResult"
+                  [class.ok]="c.testResult.ok" [class.err]="!c.testResult.ok">
+              <app-icon [name]="c.testResult.ok ? 'check' : 'triangle-alert'" [size]="13" />
+              {{ c.testResult.detail }}
+            </span>
+          </div>
         </div>
-      </div>
-
-      <div class="card">
-        <h3 class="card-title">Confluence</h3>
-        <div class="toggle-list"><div class="toggle-row"><div><span class="toggle-label">Activer Confluence</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="integrations.confluenceEnabled" /><span class="slider"></span></label></div></div>
-        <div class="form-grid" style="margin-top:16px" *ngIf="integrations.confluenceEnabled">
-          <div class="form-group"><label>URL Confluence</label><input type="url" [(ngModel)]="integrations.confluenceUrl" /></div>
-          <div class="form-group"><label>API Token</label><input type="password" [(ngModel)]="integrations.confluenceToken" /></div>
-          <div class="form-group"><label>Espace (Space Key)</label><input type="text" [(ngModel)]="integrations.confluenceSpace" /></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3 class="card-title">GitHub</h3>
-        <div class="toggle-list"><div class="toggle-row"><div><span class="toggle-label">Activer GitHub</span></div><label class="toggle-switch"><input type="checkbox" [(ngModel)]="integrations.githubEnabled" /><span class="slider"></span></label></div></div>
-        <div class="form-grid" style="margin-top:16px" *ngIf="integrations.githubEnabled">
-          <div class="form-group"><label>Personal Access Token</label><input type="password" [(ngModel)]="integrations.githubToken" /></div>
-          <div class="form-group"><label>Organisation</label><input type="text" [(ngModel)]="integrations.githubOrg" /></div>
-        </div>
-      </div>
-
-      <div class="section-actions">
-        <button class="btn-save" (click)="save('integrations')">💾 Sauvegarder</button>
       </div>
     </section>
 

@@ -61,4 +61,17 @@ export interface ChatMessage {
   cached?: boolean;           // served from the semantic cache
   agentSteps?: { tool: string; label: string; done: boolean }[];  // live reasoning timeline
   stepsCollapsed?: boolean;   // timeline accordion state after completion
+  pendingAction?: PendingAction;   // integration write awaiting confirmation
+}
+
+export interface PendingAction {
+  connector: string;
+  connector_name: string;
+  icon: string;
+  tool: string;
+  args: any;
+  summary: string;
+  status?: 'pending' | 'running' | 'done' | 'error';
+  result?: any;
+  error?: string;
 }

@@ -51,6 +51,7 @@ class ChatResponse(BaseModel):
     intent: Optional[str] = None          # Classified intent of the user message
     cached: bool = False                  # True when served from the semantic cache
     session_title: Optional[str] = None   # Auto-generated title after the first exchange
+    pending_action: Optional[dict] = None # Integration write awaiting user confirmation
 
 # ─── Feedback ──────────────────────────────────────────
 class FeedbackRequest(BaseModel):
