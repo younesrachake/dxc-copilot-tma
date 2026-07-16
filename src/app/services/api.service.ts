@@ -500,6 +500,12 @@ export class ApiService {
       .pipe(catchError(this.handleError));
   }
 
+  /** Public read of the appearance section (no admin required) — used to theme the app for all users. */
+  getPublicAppearance(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/api/admin/public/appearance`, { withCredentials: true })
+      .pipe(catchError(this.handleError));
+  }
+
   saveAdminSettings(section: string, data: any): Observable<any> {
     return this.http.put(`${this.baseUrl}/api/admin/settings/${section}`, data, { withCredentials: true })
       .pipe(catchError(this.handleError));

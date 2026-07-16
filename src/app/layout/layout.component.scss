@@ -223,15 +223,16 @@
         padding: 2px;
         border-radius: 4px;
         display: inline-flex;
-        opacity: 0;
-        transition: opacity 0.15s, background-color 0.15s;
+        opacity: 0.75;
+        transition: opacity 0.15s, background-color 0.15s, color 0.15s;
 
-        &:hover { background-color: var(--sb-hover); color: var(--sb-ink); }
+        &:hover { background-color: var(--sb-hover); color: var(--sb-ink); opacity: 1; }
       }
     }
   }
 
-  &:hover .item-options-btn, .item-options-btn:focus { opacity: 1; }
+  &:hover .item-options-btn, .item-options-btn:focus,
+  &.active .item-options-btn { opacity: 1; color: var(--sb-ink); }
 
   .rename-row {
     display: flex;
@@ -320,6 +321,11 @@
   flex-shrink: 0;
   padding-top: 10px;
   border-top: 1px solid var(--sb-border);
+
+  .logout-item {
+    color: #f89797;
+    &:hover { background-color: rgba(220, 38, 38, 0.18); color: #ffb4b4; }
+  }
 
   .theme-toggle-row { padding: 6px 0 2px; }
 

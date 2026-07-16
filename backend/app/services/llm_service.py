@@ -55,7 +55,40 @@ class LLMService:
         self._client = None
         self._available = False
         self._provider = "none"
+        # ── Admin-tunable runtime config (admin Settings → "IA & Modèles LLM") ──
+        # Overridden live by runtime_settings.apply_section("ai", …). The model
+        # selector is deliberately NOT wired: its options (gpt-4-turbo, claude…)
+        # don't match the configured provider's model IDs and would break calls.
+        self._rt_system_prompt: Optional[str] = None
+        self._rt_temperature: float = 0.3
+        self._rt_max_tokens: int = 1024
         self._init_client()
+
+    def apply_runtime_config(self, data: dict) -> None:
+        """Apply the saved 'ai' settings section to live generation parameters.
+
+        Missing keys revert to the built-in defaults, so passing ``{}`` resets.
+        """
+        prompt = (data.get("systemPrompt") or "").strip()
+        self._rt_system_prompt = prompt or None
+        try:
+            t = float(data.get("temperature", 0.3))
+            self._rt_temperature = min(max(t, 0.0), 2.0)
+        except (TypeError, ValueError):
+            self._rt_temperature = 0.3
+        try:
+            mt = int(data.get("maxTokens", 1024))
+            self._rt_max_tokens = min(max(mt, 64), 32768)
+        except (TypeError, ValueError):
+            self._rt_max_tokens = 1024
+        logger.info(
+            "AI settings applied — temperature=%.2f max_tokens=%d custom_prompt=%s",
+            self._rt_temperature, self._rt_max_tokens, self._rt_system_prompt is not None,
+        )
+
+    @property
+    def _system_prompt(self) -> str:
+        return self._rt_system_prompt or SYSTEM_PROMPT
 
     def _init_client(self):
         # Try Groq first, then fall back to OpenAI
@@ -132,7 +165,7 @@ class LLMService:
         else:
             logger.info("RAG score %.3f in [%.2f, %.2f) — using KB as hint", top_score, t_low, t_high)
 
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        messages = [{"role": "system", "content": self._system_prompt}]
 
         if context_docs:
             numbered = []
@@ -257,7 +290,7 @@ class LLMService:
                 model = GROQ_MODEL if self._provider == "groq" else OPENAI_MODEL
                 stream = self._client.chat.completions.create(
                     model=model, messages=messages,
-                    max_tokens=1024, temperature=0.3, stream=True
+                    max_tokens=self._rt_max_tokens, temperature=self._rt_temperature, stream=True
                 )
                 for chunk in stream:
                     delta = chunk.choices[0].delta.content if chunk.choices else None
@@ -293,8 +326,8 @@ class LLMService:
         completion = self._client.chat.completions.create(
             model=model,
             messages=messages,
-            max_tokens=1024,
-            temperature=0.3
+            max_tokens=self._rt_max_tokens,
+            temperature=self._rt_temperature
         )
         return completion.choices[0].message.content
 

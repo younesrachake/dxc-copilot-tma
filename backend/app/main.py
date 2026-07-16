@@ -212,6 +212,11 @@ async def lifespan(app: FastAPI):
             await session.commit()
             logger.info("✅ Seeded %d maintenance tasks", len(seed_tasks))
 
+    # ── Apply persisted admin settings to live runtime state ──────
+    from app.core import runtime_settings
+    async with async_session() as session:
+        await runtime_settings.load_and_apply_all(session)
+
     # ── Start background session cleanup task ─────────────────────
     cleanup_task = asyncio.create_task(_session_cleanup_loop())
 
@@ -286,17 +291,55 @@ async def security_headers(request: Request, call_next):
     return response
 
 
-# ── File Size Validation Middleware (15 MB limit) ─────────────────
+# ── File Size Validation Middleware (admin-tunable limit) ─────────
 @app.middleware("http")
 async def limit_upload_size(request: Request, call_next):
     if request.method in ("POST", "PUT", "PATCH"):
+        from app.core import runtime_settings
+        max_bytes = runtime_settings.max_upload_bytes()
         content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > MAX_UPLOAD_BYTES:
+        if content_length and int(content_length) > max_bytes:
+            limit_mb = max_bytes // (1024 * 1024)
             return JSONResponse(
                 status_code=413,
-                content={"detail": "Le fichier dépasse la limite de 15 MB."}
+                content={"detail": f"Le fichier dépasse la limite de {limit_mb} MB."}
             )
     return await call_next(request)
+
+
+# ── Maintenance Mode Middleware (admin Settings → Général) ────────
+_MAINTENANCE_ALLOWED_PREFIXES = ("/api/auth", "/api/admin")
+
+
+@app.middleware("http")
+async def maintenance_mode(request: Request, call_next):
+    from app.core import runtime_settings
+    if runtime_settings.general.get("maintenanceMode"):
+        path = request.url.path
+        is_api = path.startswith("/api")
+        is_allowed = path in ("/", "/healthz") or path.startswith(_MAINTENANCE_ALLOWED_PREFIXES)
+        if is_api and not is_allowed:
+            # Admins bypass maintenance mode; everyone else is blocked.
+            if not _request_is_admin(request):
+                return JSONResponse(
+                    status_code=503,
+                    content={"detail": "Plateforme en maintenance. Réessayez plus tard."}
+                )
+    return await call_next(request)
+
+
+def _request_is_admin(request: Request) -> bool:
+    """Best-effort admin check from the access-token cookie (no DB hit)."""
+    token = request.cookies.get("access_token")
+    if not token:
+        return False
+    try:
+        from jose import jwt as _jwt
+        from app.core.config import JWT_SECRET, JWT_ALGORITHM
+        payload = _jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload.get("role") == "admin"
+    except Exception:
+        return False
 
 
 # ── Prometheus metrics (/metrics — blocked at nginx, scraped internally) ──

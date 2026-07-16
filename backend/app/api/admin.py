@@ -26,6 +26,7 @@ from jose import jwt
 from app.core.database import get_db
 from app.core.config import JWT_SECRET, JWT_ALGORITHM
 from app.core.audit import audit
+from app.core import runtime_settings
 from app.models.db import User, Session, Message, Incident, Feedback, IncidentGuide, MaintenanceTask, PlatformSetting, AuditLog
 from app.models.schemas import (
     AdminUserResponse, CreateUserRequest, UpdateUserRequest,
@@ -445,6 +446,20 @@ async def create_user(req: CreateUserRequest, request: Request, db: AsyncSession
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Un utilisateur avec cet email existe déjà")
 
+    # Enforce the live max-users cap (admin Settings → Utilisateurs & Accès)
+    max_users = int(runtime_settings.users.get("maxUsers", 500))
+    current_count = (await db.execute(select(func.count(User.id)))).scalar() or 0
+    if int(str(current_count)) >= max_users:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Limite d'utilisateurs atteinte ({max_users}). Augmentez-la dans Paramètres → Utilisateurs & Accès."
+        )
+
+    # Enforce the live password policy (admin Settings → Sécurité)
+    policy_error = runtime_settings.validate_password(req.password)
+    if policy_error:
+        raise HTTPException(status_code=400, detail=policy_error)
+
     user = User(
         email=req.email,
         full_name=req.name,
@@ -818,6 +833,16 @@ async def get_report_data(report_type: str, request: Request, db: AsyncSession =
 #  SETTINGS — persisted in DB per section
 # ═══════════════════════════════════════════════════════════════════
 
+@router.get("/public/appearance")
+async def get_public_appearance(db: AsyncSession = Depends(get_db)):
+    """Public read of the appearance section only — so every user (and the login
+    page) gets the platform's theme/colours. Contains no sensitive data."""
+    row = (await db.execute(
+        select(PlatformSetting).where(PlatformSetting.section == "appearance")
+    )).scalar_one_or_none()
+    return {"appearance": row.data if row else {}}
+
+
 @router.get("/settings")
 async def get_settings(request: Request, db: AsyncSession = Depends(get_db)):
     await require_admin(request, db)
@@ -860,6 +885,8 @@ async def save_settings(section: str, data: dict, request: Request, db: AsyncSes
     else:
         db.add(PlatformSetting(section=section, data=data))
     await db.commit()
+    # Project the saved section onto live runtime state so it takes effect now.
+    runtime_settings.apply_section(section, data)
     return {"status": "success", "message": f"Section '{section}' sauvegardée avec succès."}
 
 
@@ -871,6 +898,8 @@ async def reset_settings_section(section: str, request: Request, db: AsyncSessio
     if row:
         await db.delete(row)
         await db.commit()
+    # Revert live runtime state to the shipped defaults for this section.
+    runtime_settings.reset_section(section)
     return {"status": "success", "message": f"Section '{section}' réinitialisée aux valeurs par défaut."}
 
 
@@ -1136,8 +1165,10 @@ async def change_password(req: ChangePasswordRequest, request: Request, db: Asyn
     user = await get_current_user(request, db)
     if not await _verify_password(req.current_password, str(user.hashed_password)):
         raise HTTPException(status_code=400, detail="Mot de passe actuel incorrect")
-    if len(req.new_password) < 12:
-        raise HTTPException(status_code=400, detail="Le nouveau mot de passe doit contenir au moins 12 caractères")
+    # Enforce the live password policy (admin Settings → Sécurité)
+    policy_error = runtime_settings.validate_password(req.new_password)
+    if policy_error:
+        raise HTTPException(status_code=400, detail=policy_error)
     user.hashed_password = await _hash_password(req.new_password)  # type: ignore[assignment]
     await db.commit()
     return {"status": "success", "message": "Mot de passe mis à jour avec succès"}

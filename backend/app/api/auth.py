@@ -13,12 +13,16 @@ from app.core.database import get_db
 from app.core.config import (
     JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRE_MINUTES, ENV,
     SSO_ENABLED, SSO_CLIENT_ID, SSO_CLIENT_SECRET, SSO_TENANT_ID, SSO_REDIRECT_URI,
+    FRONTEND_URL,
 )
 from app.core.audit import audit
 from app.core.limiter import limiter
+from app.core import runtime_settings
 from app.models.db import User, PasswordResetToken
 from app.models.schemas import LoginRequest, LoginResponse, UserResponse, ForgotPasswordRequest, ResetPasswordRequest
 
+# Fallback defaults — the live values come from runtime_settings.security,
+# tunable via admin Settings → Sécurité.
 _MAX_FAILED_ATTEMPTS = 5
 _LOCKOUT_MINUTES = 15
 
@@ -76,10 +80,12 @@ async def login(request: Request, req: LoginRequest, response: Response, db: Asy
     if not user or not password_ok:
         # Increment failed attempts on known user
         if user:
+            max_attempts = int(runtime_settings.security.get("maxFailedAttempts", _MAX_FAILED_ATTEMPTS))
+            lockout_min = int(runtime_settings.security.get("lockoutDurationMin", _LOCKOUT_MINUTES))
             current_attempts = (getattr(user, 'failed_attempts', None) or 0) + 1
             user.failed_attempts = current_attempts  # type: ignore[assignment]
-            if current_attempts >= _MAX_FAILED_ATTEMPTS:
-                user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=_LOCKOUT_MINUTES)  # type: ignore[assignment]
+            if current_attempts >= max_attempts:
+                user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=lockout_min)  # type: ignore[assignment]
             await db.commit()
         raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
 
@@ -92,10 +98,11 @@ async def login(request: Request, req: LoginRequest, response: Response, db: Asy
     await audit(db, int(str(user.id)), "login", resource="auth", ip=request.client.host if request.client else None)
 
     flags = _cookie_flags()
-    access_token = create_token({"sub": str(user.id), "role": user.role or "user"}, timedelta(minutes=JWT_EXPIRE_MINUTES))
+    ttl_min = runtime_settings.session_timeout_minutes()
+    access_token = create_token({"sub": str(user.id), "role": user.role or "user"}, timedelta(minutes=ttl_min))
     refresh_token = create_token({"sub": str(user.id), "type": "refresh"}, timedelta(days=7))
 
-    response.set_cookie("access_token", access_token, max_age=JWT_EXPIRE_MINUTES * 60, **flags)
+    response.set_cookie("access_token", access_token, max_age=ttl_min * 60, **flags)
     response.set_cookie("refresh_token", refresh_token, max_age=7 * 24 * 3600, **flags)
 
     return {"message": "Connexion réussie", "user": {"id": user.id, "email": user.email, "full_name": user.full_name}}
@@ -128,10 +135,11 @@ async def refresh_token(request: Request, response: Response, db: AsyncSession =
         raise HTTPException(status_code=401, detail="Utilisateur non trouvé")
 
     flags = _cookie_flags()
-    new_access = create_token({"sub": str(user.id), "role": user.role or "user"}, timedelta(minutes=JWT_EXPIRE_MINUTES))
+    ttl_min = runtime_settings.session_timeout_minutes()
+    new_access = create_token({"sub": str(user.id), "role": user.role or "user"}, timedelta(minutes=ttl_min))
     new_refresh = create_token({"sub": str(user.id), "type": "refresh"}, timedelta(days=7))
 
-    response.set_cookie("access_token", new_access, max_age=JWT_EXPIRE_MINUTES * 60, **flags)
+    response.set_cookie("access_token", new_access, max_age=ttl_min * 60, **flags)
     response.set_cookie("refresh_token", new_refresh, max_age=7 * 24 * 3600, **flags)
 
     return {"message": "Tokens renouvelés"}
@@ -166,29 +174,65 @@ async def get_me(request: Request, db: AsyncSession = Depends(get_db)):
 
 @router.get("/sso/login")
 async def sso_login():
-    """Initiate SSO login — redirect to OIDC provider."""
+    """Initiate SSO login — redirect to OIDC provider (Microsoft Entra ID / Azure AD)."""
     if not SSO_ENABLED:
         raise HTTPException(
             status_code=503,
             detail="SSO non configuré. Contactez votre administrateur pour activer SSO_CLIENT_ID, SSO_CLIENT_SECRET et SSO_TENANT_ID."
         )
+    from urllib.parse import urlencode
+
+    # CSRF protection: generate a state value, persist it in a short-lived
+    # cookie, and verify it on the callback.
+    state = secrets.token_urlsafe(24)
+
     # Microsoft Azure AD / Generic OIDC authorization URL
+    params = {
+        "client_id": SSO_CLIENT_ID,
+        "response_type": "code",
+        "redirect_uri": SSO_REDIRECT_URI,
+        "scope": "openid profile email",
+        "state": state,
+        "response_mode": "query",
+    }
     auth_url = (
-        f"https://login.microsoftonline.com/{SSO_TENANT_ID}/oauth2/v2.0/authorize"
-        f"?client_id={SSO_CLIENT_ID}"
-        f"&response_type=code"
-        f"&redirect_uri={SSO_REDIRECT_URI}"
-        f"&scope=openid+profile+email"
-        f"&state={secrets.token_urlsafe(16)}"
+        f"https://login.microsoftonline.com/{SSO_TENANT_ID}/oauth2/v2.0/authorize?"
+        + urlencode(params)
     )
-    return RedirectResponse(url=auth_url)
+
+    redirect = RedirectResponse(url=auth_url)
+    redirect.set_cookie(
+        "sso_state", state,
+        max_age=600,               # 10 minutes to complete login
+        httponly=True,
+        samesite="lax",
+        secure=ENV == "production",
+    )
+    return redirect
 
 
 @router.get("/sso/callback")
-async def sso_callback(code: str, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
-    """Handle OIDC callback — exchange code for tokens, create/update user, set cookies."""
+async def sso_callback(
+    request: Request,
+    code: str = "",
+    state: str = "",
+    error: str = "",
+    db: AsyncSession = Depends(get_db),
+):
+    """Handle OIDC callback — validate state, exchange code, provision user, set cookies."""
     if not SSO_ENABLED:
         raise HTTPException(status_code=503, detail="SSO non configuré")
+
+    # Provider-reported error (e.g. user cancelled consent)
+    if error:
+        raise HTTPException(status_code=401, detail=f"Authentification SSO refusée: {error}")
+    if not code:
+        raise HTTPException(status_code=400, detail="Code d'autorisation SSO manquant")
+
+    # CSRF: the state returned by the provider must match the one we issued.
+    expected_state = request.cookies.get("sso_state")
+    if not expected_state or not state or not secrets.compare_digest(state, expected_state):
+        raise HTTPException(status_code=400, detail="État SSO invalide (possible tentative CSRF)")
 
     try:
         import httpx
@@ -240,14 +284,17 @@ async def sso_callback(code: str, request: Request, response: Response, db: Asyn
         await db.refresh(user)
 
         flags = _cookie_flags()
-        access_token = create_token({"sub": str(user.id), "role": user.role or "user"}, timedelta(minutes=JWT_EXPIRE_MINUTES))
+        ttl_min = runtime_settings.session_timeout_minutes()
+        access_token = create_token({"sub": str(user.id), "role": user.role or "user"}, timedelta(minutes=ttl_min))
         refresh_token_val = create_token({"sub": str(user.id), "type": "refresh"}, timedelta(days=7))
 
-        response.set_cookie("access_token", access_token, max_age=JWT_EXPIRE_MINUTES * 60, **flags)
-        response.set_cookie("refresh_token", refresh_token_val, max_age=7 * 24 * 3600, **flags)
-
-        # Redirect to app
-        return RedirectResponse(url="/chat")
+        # Cookies MUST be set on the response object we actually return.
+        # Redirect the browser to the frontend SPA, not the backend host.
+        redirect = RedirectResponse(url=f"{FRONTEND_URL}/chat")
+        redirect.set_cookie("access_token", access_token, max_age=ttl_min * 60, **flags)
+        redirect.set_cookie("refresh_token", refresh_token_val, max_age=7 * 24 * 3600, **flags)
+        redirect.delete_cookie("sso_state")
+        return redirect
 
     except HTTPException:
         raise
@@ -318,6 +365,11 @@ async def reset_password(req: ResetPasswordRequest, db: AsyncSession = Depends(g
     user = user_result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=400, detail="Utilisateur non trouvé")
+
+    # Enforce the live password policy (admin Settings → Sécurité)
+    policy_error = runtime_settings.validate_password(req.new_password)
+    if policy_error:
+        raise HTTPException(status_code=400, detail=policy_error)
 
     user.hashed_password = pwd_context.hash(req.new_password)  # type: ignore[assignment]
     reset_token.used = True  # type: ignore[assignment]

@@ -29,6 +29,12 @@ async def audit(
         ip: Client IP address.
     """
     try:
+        # Respect the live audit toggle (admin Settings → Audit & Conformité)
+        from app.core import runtime_settings
+        kind = "failed_login" if "fail" in action.lower() else ""
+        if not runtime_settings.audit_enabled(kind):
+            return
+
         entry = AuditLog(
             user_id=user_id,
             action=action,

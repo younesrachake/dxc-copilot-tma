@@ -27,6 +27,9 @@ SSO_TENANT_ID = os.getenv("SSO_TENANT_ID", "")
 SSO_REDIRECT_URI = os.getenv("SSO_REDIRECT_URI", "http://localhost:8000/api/auth/sso/callback")
 SSO_ENABLED = bool(SSO_CLIENT_ID and SSO_CLIENT_SECRET and SSO_TENANT_ID)
 
+# Frontend app URL — where users land after a successful SSO login
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:4200")
+
 # SMTP email configuration
 SMTP_HOST = os.getenv("SMTP_HOST", "")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))

@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cd \"c:\\\\Users\\\\USER\\\\Downloads\\\\dxc-copilot-tma-main \\(2\\)\\\\dxc-copilot-tma-main\"; \\(Get-Content package.json -Raw | ConvertFrom-Json\\).scripts; Test-Path node_modules)",
+      "Bash(python -c ' *)",
+      "Bash(rm -f backend/e2e_test.db)",
+      "Bash(npx playwright *)",
+      "Bash(rm -f /tmp/alembic_fresh.db)",
+      "Bash(DATABASE_URL=\"sqlite+aiosqlite:///./alembic_fresh_test.db\" DISABLE_LOCAL_ML=1 DISABLE_CHROMA=1 PYTHONIOENCODING=utf-8 python -m alembic upgrade head)",
+      "Bash(DATABASE_URL=sqlite+aiosqlite:///./alembic_fresh_test.db python -c ' *)",
+      "Bash(cp dxc_copilot.db dxc_copilot_pretest.db)",
+      "Bash(DISABLE_LOCAL_ML=1 DISABLE_CHROMA=1 PYTHONIOENCODING=utf-8 python -m alembic upgrade head)",
+      "Bash(DATABASE_URL=\"postgresql+asyncpg://u:p@postgres:5432/db\" JWT_SECRET=\"x_strong_secret_of_32_characters_xx\" INITIAL_ADMIN_PASSWORD=\"StrongPass1234!\" REDIS_PASSWORD=r POSTGRES_USER=u POSTGRES_PASSWORD=p GRAFANA_ADMIN_PASSWORD=g docker compose --profile observability config --quiet)",
+      "Bash(/tmp/windows-amd64/helm.exe lint *)",
+      "Bash(/tmp/windows-amd64/helm.exe template *)",
+      "Bash(pip install *)",
+      "Bash(python -m ruff check app tests)",
+      "Bash(python -m ruff check app tests --fix)",
+      "Bash(PYTHONIOENCODING=utf-8 python -m pytest tests)",
+      "Bash(npx ng *)",
+      "Bash(npm run *)",
+      "Bash(git fetch *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(gh run *)"
+    ]
+  }
+}

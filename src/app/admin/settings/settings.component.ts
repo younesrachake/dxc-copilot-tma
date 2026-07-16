@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
+import { AppearanceService } from '../../services/appearance.service';
 import { IconComponent } from '../../shared/icon.component';
 
 @Component({
@@ -20,7 +21,7 @@ export class AdminSettingsComponent implements OnInit {
   connectors: any[] = [];
   connectorsLoading = false;
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private appearanceSvc: AppearanceService) {}
 
   loadConnectors(): void {
     this.connectorsLoading = true;
@@ -508,6 +509,8 @@ export class AdminSettingsComponent implements OnInit {
       : raw;
     this.api.saveAdminSettings(section, data).subscribe({
       next: () => {
+        // Appearance changes take effect immediately, no reload needed.
+        if (section === 'appearance') this.appearanceSvc.apply(this.appearance);
         this.savedFeedback = `Section "${this.sections.find(s => s.id === section)?.label}" sauvegardée avec succès.`;
         setTimeout(() => this.savedFeedback = '', 3000);
       },
