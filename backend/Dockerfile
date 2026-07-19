@@ -13,7 +13,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Python dependencies
 COPY requirements.txt .
+# Install the CPU-only torch build FIRST so easyocr/transformers don't drag in
+# the ~11 GB of NVIDIA CUDA wheels (this deployment is CPU-only).
 RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir torch==2.2.2 torchvision==0.17.2 \
+        --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r requirements.txt
 
 # Pre-download local ML models (~1 GB) so containers don't fetch them at first request

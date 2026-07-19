@@ -17,10 +17,10 @@ class User(Base):
     role = Column(String(20), default="user")
     department = Column(String(100), nullable=True)
     status = Column(String(20), default="active")
-    last_login = Column(DateTime, nullable=True)
+    last_login = Column(DateTime(timezone=True), nullable=True)
     failed_attempts = Column(Integer, default=0, nullable=False)
     locked_until = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime, default=_now)
+    created_at = Column(DateTime(timezone=True), default=_now)
 
     sessions = relationship("Session", back_populates="user")
 
@@ -31,8 +31,8 @@ class Session(Base):
     id = Column(String(36), primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     title = Column(String(255), default="Nouvelle conversation")
-    created_at = Column(DateTime, default=_now, index=True)
-    updated_at = Column(DateTime, default=_now, onupdate=_now)
+    created_at = Column(DateTime(timezone=True), default=_now, index=True)
+    updated_at = Column(DateTime(timezone=True), default=_now, onupdate=_now)
 
     user = relationship("User", back_populates="sessions")
     messages = relationship("Message", back_populates="session", cascade="all, delete-orphan")
@@ -48,7 +48,7 @@ class Message(Base):
     attachments = Column(JSON, nullable=True)
     guide_card = Column(JSON, nullable=True)
     feedback = Column(String(10), nullable=True)
-    created_at = Column(DateTime, default=_now, index=True)
+    created_at = Column(DateTime(timezone=True), default=_now, index=True)
 
     session = relationship("Session", back_populates="messages")
 
@@ -59,7 +59,7 @@ class Incident(Base):
     id = Column(Integer, primary_key=True, index=True)
     incident_type = Column(String(100), unique=True, nullable=False, index=True)
     count = Column(Integer, default=1)
-    last_seen = Column(DateTime, default=_now)
+    last_seen = Column(DateTime(timezone=True), default=_now)
 
 
 class Feedback(Base):
@@ -70,7 +70,7 @@ class Feedback(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     rating = Column(String(10), nullable=False, index=True)
     reason = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=_now)
+    created_at = Column(DateTime(timezone=True), default=_now)
 
 
 class JiraTicket(Base):
@@ -83,7 +83,7 @@ class JiraTicket(Base):
     priority = Column(String(20), nullable=True, default="Medium")
     status = Column(String(50), nullable=False, default="Created")
     url = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=_now)
+    created_at = Column(DateTime(timezone=True), default=_now)
 
 
 class PlatformSetting(Base):
@@ -91,7 +91,7 @@ class PlatformSetting(Base):
 
     section = Column(String(100), primary_key=True)
     data = Column(JSON, nullable=False, default=dict)
-    updated_at = Column(DateTime, default=_now, onupdate=_now)
+    updated_at = Column(DateTime(timezone=True), default=_now, onupdate=_now)
 
 
 class MaintenanceTask(Base):
@@ -101,8 +101,8 @@ class MaintenanceTask(Base):
     name = Column(String(255), nullable=False)
     status = Column(String(50), nullable=False, default="Programmée")
     schedule = Column(String(255), nullable=True)
-    last_run = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=_now)
+    last_run = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now)
 
 
 class IncidentGuide(Base):
@@ -121,8 +121,8 @@ class IncidentGuide(Base):
     occurrences = Column(Integer, default=1)
     review_note = Column(Text, nullable=True)
     specs = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=_now)
-    updated_at = Column(DateTime, default=_now, onupdate=_now)
+    created_at = Column(DateTime(timezone=True), default=_now)
+    updated_at = Column(DateTime(timezone=True), default=_now, onupdate=_now)
 
 
 class PasswordResetToken(Base):
@@ -131,9 +131,9 @@ class PasswordResetToken(Base):
     id = Column(Integer, primary_key=True, index=True)
     token = Column(String(64), unique=True, nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    expires_at = Column(DateTime, nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
     used = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=_now)
+    created_at = Column(DateTime(timezone=True), default=_now)
 
 
 class AuditLog(Base):
@@ -145,4 +145,4 @@ class AuditLog(Base):
     resource = Column(String(100), nullable=True)
     detail = Column(Text, nullable=True)
     ip_address = Column(String(45), nullable=True)
-    created_at = Column(DateTime, default=_now, index=True)
+    created_at = Column(DateTime(timezone=True), default=_now, index=True)

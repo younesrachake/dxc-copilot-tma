@@ -1,0 +1,49 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Argo CD Application — GitOps deploy of the DXC Copilot Helm chart.
+#
+# GitOps means Argo CD syncs from a *Git repository*, not the local disk. Before
+# applying this, push this project to a Git remote Argo CD can reach and set
+# `repoURL` / `targetRevision` below to match it.
+#
+# Apply with:
+#   kubectl apply -n argocd -f deploy/argocd/dxc-copilot-application.yaml
+#
+# Argo CD will then keep the cluster in sync with the chart in Git automatically.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dxc-copilot
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io   # cascade-delete managed resources
+spec:
+  project: default
+
+  source:
+    # 👇 CHANGE THIS to your Git remote (GitHub/GitLab/Bitbucket).
+    repoURL: https://github.com/<your-org>/dxc-copilot-tma.git
+    targetRevision: main
+    path: deploy/helm/dxc-copilot
+    helm:
+      # Swap for values-prod.yaml in production.
+      valueFiles:
+        - values.yaml
+
+  destination:
+    server: https://kubernetes.default.svc   # the cluster Argo CD runs in
+    namespace: dxc
+
+  syncPolicy:
+    automated:
+      prune: true        # delete resources removed from Git
+      selfHeal: true     # revert manual drift back to Git state
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
