@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM python:3.14-slim
 
 # Security: non-root user with a fixed numeric UID (k8s runAsNonRoot needs it)
 RUN groupadd -g 10001 appuser && \
